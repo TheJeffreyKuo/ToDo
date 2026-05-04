@@ -1,0 +1,27 @@
+{
+  "name": "todo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:generate": "npm run -w @todo/server db:generate",
+    "db:migrate": "npm run -w @todo/server db:migrate",
+    "db:studio": "npm run -w @todo/server db:studio",
+    "dev:server": "npm run -w @todo/server dev",
+    "dev:client": "npm run -w @todo/client dev",
+    "dev": "concurrently -n server,client -c blue,green \"npm:dev:server\" \"npm:dev:client\"",
+    "build": "npm run -w @todo/shared build && npm run -w @todo/server build && npm run -w @todo/client build",
+    "test": "npm run -w @todo/server test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.7.2"
+  }
+}
