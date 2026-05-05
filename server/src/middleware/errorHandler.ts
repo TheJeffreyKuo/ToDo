@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
+import { HttpError } from "../lib/http-errors.js";
 
 type ApiError = {
   status: number;
@@ -17,13 +18,12 @@ function toApiError(err: unknown): ApiError {
       details: err.flatten(),
     };
   }
-  if (err && typeof err === "object" && "status" in err && "code" in err) {
-    const e = err as { status: number; code: string; message?: string; details?: unknown };
+  if (err instanceof HttpError) {
     return {
-      status: e.status,
-      code: e.code,
-      message: e.message ?? "Request failed",
-      details: e.details,
+      status: err.status,
+      code: err.code,
+      message: err.message,
+      details: err.details,
     };
   }
   return { status: 500, code: "INTERNAL", message: "Internal server error" };
