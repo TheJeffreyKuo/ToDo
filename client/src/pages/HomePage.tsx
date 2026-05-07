@@ -1,12 +1,19 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { useProjects } from "@/hooks/useProjects";
 import { useTasks } from "@/hooks/useTasks";
+import type { Project } from "@/api/projects";
 import type { Task } from "@/api/tasks";
+
+type ProjectsState =
+  | { status: "loading" }
+  | { status: "ready"; projects: Project[] }
+  | { status: "error"; message: string };
 
 export default function HomePage() {
   const { state: authState, logout } = useAuth();
+  const projectsHook = useProjects();
 
   if (authState.status !== "authenticated") return null;
 
@@ -26,15 +33,26 @@ export default function HomePage() {
       </header>
 
       <main className="max-w-2xl mx-auto mt-8 space-y-10">
-        <ProjectsSection />
-        <TasksSection />
+        <ProjectsSection
+          state={projectsHook.state}
+          createProject={projectsHook.createProject}
+          deleteProject={projectsHook.deleteProject}
+        />
+        <TasksSection projectsState={projectsHook.state} />
       </main>
     </div>
   );
 }
 
-function ProjectsSection() {
-  const { state, createProject, deleteProject } = useProjects();
+function ProjectsSection({
+  state,
+  createProject,
+  deleteProject,
+}: {
+  state: ProjectsState;
+  createProject: (input: { name: string }) => Promise<unknown>;
+  deleteProject: (id: number) => Promise<unknown>;
+}) {
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -108,11 +126,30 @@ function ProjectsSection() {
   );
 }
 
-function TasksSection() {
+// "all" = no filter; "inbox" = projectId is null; number = a specific project's id
+type TaskFilter = "all" | "inbox" | number;
+
+function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
   const { state, createTask, updateTask, deleteTask } = useTasks();
   const [newTitle, setNewTitle] = useState("");
+  const [newProjectId, setNewProjectId] = useState<number | null>(null);
+  const [filter, setFilter] = useState<TaskFilter>("all");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  const projects = projectsState.status === "ready" ? projectsState.projects : [];
+  const projectsById = useMemo(() => {
+    const map = new Map<number, Project>();
+    for (const p of projects) map.set(p.id, p);
+    return map;
+  }, [projects]);
+
+  const visibleTasks = useMemo(() => {
+    if (state.status !== "ready") return [];
+    if (filter === "all") return state.tasks;
+    if (filter === "inbox") return state.tasks.filter((t) => t.projectId === null);
+    return state.tasks.filter((t) => t.projectId === filter);
+  }, [state, filter]);
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -121,7 +158,7 @@ function TasksSection() {
     setCreating(true);
     setCreateError(null);
     try {
-      await createTask({ title });
+      await createTask(newProjectId === null ? { title } : { title, projectId: newProjectId });
       setNewTitle("");
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : "Something went wrong");
@@ -132,7 +169,26 @@ function TasksSection() {
 
   return (
     <section>
-      <h2 className="text-lg font-semibold mb-3">Tasks</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold">Tasks</h2>
+        <select
+          value={filter === "all" || filter === "inbox" ? filter : String(filter)}
+          onChange={(e) => {
+            const v = e.target.value;
+            setFilter(v === "all" || v === "inbox" ? v : Number(v));
+          }}
+          className="rounded border px-2 py-1 text-sm"
+        >
+          <option value="all">All</option>
+          <option value="inbox">Inbox</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <form onSubmit={onCreate} className="flex gap-2 mb-4">
         <input
           value={newTitle}
@@ -141,6 +197,19 @@ function TasksSection() {
           disabled={creating}
           className="flex-1 rounded border px-3 py-2 text-sm"
         />
+        <select
+          value={newProjectId === null ? "" : String(newProjectId)}
+          onChange={(e) => setNewProjectId(e.target.value === "" ? null : Number(e.target.value))}
+          disabled={creating}
+          className="rounded border px-2 py-2 text-sm"
+        >
+          <option value="">Inbox</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
         <button
           type="submit"
           disabled={creating || !newTitle.trim()}
@@ -153,15 +222,17 @@ function TasksSection() {
 
       {state.status === "loading" && <div className="text-sm text-zinc-500">Loading…</div>}
       {state.status === "error" && <div className="text-sm text-red-600">{state.message}</div>}
-      {state.status === "ready" && state.tasks.length === 0 && (
-        <div className="text-sm text-zinc-500">No tasks yet.</div>
+      {state.status === "ready" && visibleTasks.length === 0 && (
+        <div className="text-sm text-zinc-500">No tasks{filter === "all" ? "" : " here"} yet.</div>
       )}
-      {state.status === "ready" && state.tasks.length > 0 && (
+      {state.status === "ready" && visibleTasks.length > 0 && (
         <ul className="divide-y border rounded bg-white">
-          {state.tasks.map((task) => (
+          {visibleTasks.map((task) => (
             <TaskRow
               key={task.id}
               task={task}
+              project={task.projectId !== null ? projectsById.get(task.projectId) : undefined}
+              showProjectBadge={filter === "all"}
               onToggle={(completed) => updateTask(task.id, { completed })}
               onDelete={() => deleteTask(task.id)}
             />
@@ -174,10 +245,14 @@ function TasksSection() {
 
 function TaskRow({
   task,
+  project,
+  showProjectBadge,
   onToggle,
   onDelete,
 }: {
   task: Task;
+  project: Project | undefined;
+  showProjectBadge: boolean;
   onToggle: (completed: boolean) => Promise<unknown>;
   onDelete: () => Promise<unknown>;
 }) {
@@ -192,6 +267,11 @@ function TaskRow({
       <span className={task.completed ? "flex-1 line-through text-zinc-400" : "flex-1"}>
         {task.title}
       </span>
+      {showProjectBadge && (
+        <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">
+          {project ? project.name : "Inbox"}
+        </span>
+      )}
       {task.labels.length > 0 && (
         <span className="flex gap-1">
           {task.labels.map((l) => (
