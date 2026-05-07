@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import { RedirectIfAuthed, RequireAuth } from "@/components/RequireAuth";
 import HomePage from "@/pages/HomePage";
 import LoginPage from "@/pages/LoginPage";
+import ProjectDetailPage from "@/pages/ProjectDetailPage";
 import RegisterPage from "@/pages/RegisterPage";
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
       />
       <Route element={<RequireAuth />}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/projects/:id" element={<ProjectDetailPage />} />
       </Route>
     </Routes>
   );
