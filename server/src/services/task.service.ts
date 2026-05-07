@@ -1,9 +1,10 @@
-import { and, asc, eq, isNull, max } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, max } from "drizzle-orm";
 import type { CreateTaskInput, UpdateTaskInput } from "@todo/shared/schemas/task";
 import { db } from "../db/client.js";
-import { tasks, type TaskRow } from "../db/schema.js";
+import { labels, taskLabels, tasks, type LabelRow, type TaskRow } from "../db/schema.js";
 import { NotFoundError } from "../lib/http-errors.js";
-import { requireOwnership } from "./../lib/ownership.js";
+import { requireOwnership } from "../lib/ownership.js";
+import type { LabelDTO } from "./label.service.js";
 
 export type TaskDTO = {
   id: number;
@@ -13,11 +14,21 @@ export type TaskDTO = {
   completed: boolean;
   dueDate: string | null;
   position: number;
+  labels: LabelDTO[];
   createdAt: string;
   updatedAt: string;
 };
 
-function toDTO(row: TaskRow): TaskDTO {
+function toLabelDTO(row: LabelRow): LabelDTO {
+  return {
+    id: row.id,
+    name: row.name,
+    color: row.color,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function toTaskDTO(row: TaskRow, taskLabelsForRow: LabelDTO[]): TaskDTO {
   return {
     id: row.id,
     projectId: row.projectId,
@@ -26,9 +37,26 @@ function toDTO(row: TaskRow): TaskDTO {
     completed: row.completed,
     dueDate: row.dueDate ? row.dueDate.toISOString() : null,
     position: row.position,
+    labels: taskLabelsForRow,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+async function fetchLabelsByTaskIds(taskIds: number[]): Promise<Map<number, LabelDTO[]>> {
+  const result = new Map<number, LabelDTO[]>();
+  if (taskIds.length === 0) return result;
+  const rows = await db
+    .select({ taskId: taskLabels.taskId, label: labels })
+    .from(taskLabels)
+    .innerJoin(labels, eq(taskLabels.labelId, labels.id))
+    .where(inArray(taskLabels.taskId, taskIds));
+  for (const r of rows) {
+    const arr = result.get(r.taskId) ?? [];
+    arr.push(toLabelDTO(r.label));
+    result.set(r.taskId, arr);
+  }
+  return result;
 }
 
 async function nextPosition(userId: number, projectId: number | null): Promise<number> {
@@ -41,19 +69,21 @@ async function nextPosition(userId: number, projectId: number | null): Promise<n
 }
 
 export async function listTasks(userId: number): Promise<TaskDTO[]> {
-  const rows = await db
+  const taskRows = await db
     .select()
     .from(tasks)
     .where(eq(tasks.userId, userId))
     .orderBy(asc(tasks.position), asc(tasks.createdAt));
-  return rows.map(toDTO);
+  const labelsByTask = await fetchLabelsByTaskIds(taskRows.map((t) => t.id));
+  return taskRows.map((t) => toTaskDTO(t, labelsByTask.get(t.id) ?? []));
 }
 
 // Caller must call requireOwnership("task") first.
 export async function getTask(id: number): Promise<TaskDTO> {
   const [row] = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
   if (!row) throw new NotFoundError("task not found");
-  return toDTO(row);
+  const labelsByTask = await fetchLabelsByTaskIds([id]);
+  return toTaskDTO(row, labelsByTask.get(id) ?? []);
 }
 
 export async function createTask(userId: number, input: CreateTaskInput): Promise<TaskDTO> {
@@ -75,7 +105,7 @@ export async function createTask(userId: number, input: CreateTaskInput): Promis
     })
     .returning();
   if (!row) throw new Error("Insert returned no row");
-  return toDTO(row);
+  return toTaskDTO(row, []);
 }
 
 // Caller must call requireOwnership("task") first.
@@ -107,10 +137,30 @@ export async function updateTask(
 
   const [row] = await db.update(tasks).set(updates).where(eq(tasks.id, id)).returning();
   if (!row) throw new NotFoundError("task not found");
-  return toDTO(row);
+  const labelsByTask = await fetchLabelsByTaskIds([id]);
+  return toTaskDTO(row, labelsByTask.get(id) ?? []);
 }
 
 // Caller must call requireOwnership("task") first.
 export async function deleteTask(id: number): Promise<void> {
   await db.delete(tasks).where(eq(tasks.id, id));
+}
+
+// Caller must call requireOwnership("task") first.
+export async function setTaskLabels(
+  userId: number,
+  taskId: number,
+  labelIds: number[],
+): Promise<TaskDTO> {
+  const uniqueIds = [...new Set(labelIds)];
+  await Promise.all(uniqueIds.map((id) => requireOwnership(userId, "label", id)));
+
+  await db.transaction(async (tx) => {
+    await tx.delete(taskLabels).where(eq(taskLabels.taskId, taskId));
+    if (uniqueIds.length > 0) {
+      await tx.insert(taskLabels).values(uniqueIds.map((labelId) => ({ taskId, labelId })));
+    }
+  });
+
+  return getTask(taskId);
 }

@@ -19,5 +19,10 @@ export const updateTaskSchema = z
   })
   .refine((v) => Object.keys(v).length > 0, { message: "No fields to update" });
 
+export const setTaskLabelsSchema = z.object({
+  labelIds: z.array(z.number().int().positive()).max(50),
+});
+
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+export type SetTaskLabelsInput = z.infer<typeof setTaskLabelsSchema>;
