@@ -9,6 +9,7 @@ import { useTasks, type TasksState } from "@/hooks/useTasks";
 import {
   formatMinutes,
   formatSummary,
+  nextPositionForMove,
   summariesByProject,
   totalMinutes,
   type TaskSummary,
@@ -382,6 +383,18 @@ function TasksSection({
   const todayTotal = filter === "today" ? totalMinutes(visibleTasks) : 0;
   const backlogTotal = totalMinutes(weekBacklog);
 
+  function moveHandlers(list: Task[], idx: number) {
+    const target = list[idx];
+    if (!target) return { onMoveUp: undefined, onMoveDown: undefined };
+    const upPos = nextPositionForMove(list, idx, "up");
+    const downPos = nextPositionForMove(list, idx, "down");
+    return {
+      onMoveUp: upPos !== null ? () => void updateTask(target.id, { position: upPos }) : undefined,
+      onMoveDown:
+        downPos !== null ? () => void updateTask(target.id, { position: downPos }) : undefined,
+    };
+  }
+
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const title = newTitle.trim();
@@ -497,7 +510,7 @@ function TasksSection({
           </div>
         ) : (
           <ul className="divide-y border rounded bg-white">
-            {visibleTasks.map((task) => (
+            {visibleTasks.map((task, idx) => (
               <TaskRow
                 key={task.id}
                 task={task}
@@ -507,6 +520,7 @@ function TasksSection({
                 onUpdate={(input) => updateTask(task.id, input)}
                 onSetLabels={(labelIds) => setTaskLabels(task.id, labelIds)}
                 onDelete={() => deleteTask(task.id)}
+                {...moveHandlers(visibleTasks, idx)}
               />
             ))}
           </ul>
@@ -537,7 +551,7 @@ function TasksSection({
                   <div className="text-xs text-zinc-400">No tasks</div>
                 ) : (
                   <ul className="divide-y border rounded bg-white">
-                    {dayTasks.map((task) => (
+                    {dayTasks.map((task, idx) => (
                       <TaskRow
                         key={task.id}
                         task={task}
@@ -549,6 +563,7 @@ function TasksSection({
                         onUpdate={(input) => updateTask(task.id, input)}
                         onSetLabels={(labelIds) => setTaskLabels(task.id, labelIds)}
                         onDelete={() => deleteTask(task.id)}
+                        {...moveHandlers(dayTasks, idx)}
                       />
                     ))}
                   </ul>
@@ -566,7 +581,7 @@ function TasksSection({
                 </span>
               </h3>
               <ul className="divide-y border rounded bg-white">
-                {weekBacklog.map((task) => (
+                {weekBacklog.map((task, idx) => (
                   <TaskRow
                     key={task.id}
                     task={task}
@@ -578,6 +593,7 @@ function TasksSection({
                     onUpdate={(input) => updateTask(task.id, input)}
                     onSetLabels={(labelIds) => setTaskLabels(task.id, labelIds)}
                     onDelete={() => deleteTask(task.id)}
+                    {...moveHandlers(weekBacklog, idx)}
                   />
                 ))}
               </ul>

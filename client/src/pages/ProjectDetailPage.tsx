@@ -6,7 +6,8 @@ import { TaskRow } from "@/components/TaskRow";
 import { useLabels } from "@/hooks/useLabels";
 import { useProjects } from "@/hooks/useProjects";
 import { useTasks } from "@/hooks/useTasks";
-import { formatSummary, summarizeTasks } from "@/lib/tasks";
+import { formatSummary, nextPositionForMove, summarizeTasks } from "@/lib/tasks";
+import type { Task } from "@/api/tasks";
 
 export default function ProjectDetailPage() {
   const { state: authState, logout } = useAuth();
@@ -43,6 +44,18 @@ export default function ProjectDetailPage() {
   if (authState.status !== "authenticated") return null;
 
   const availableLabels = labelsHook.state.status === "ready" ? labelsHook.state.labels : [];
+
+  function moveHandlers(list: Task[], idx: number) {
+    const target = list[idx];
+    if (!target) return { onMoveUp: undefined, onMoveDown: undefined };
+    const upPos = nextPositionForMove(list, idx, "up");
+    const downPos = nextPositionForMove(list, idx, "down");
+    return {
+      onMoveUp: upPos !== null ? () => void updateTask(target.id, { position: upPos }) : undefined,
+      onMoveDown:
+        downPos !== null ? () => void updateTask(target.id, { position: downPos }) : undefined,
+    };
+  }
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -239,7 +252,7 @@ export default function ProjectDetailPage() {
               )}
               {tasksState.status === "ready" && projectTasks.length > 0 && (
                 <ul className="divide-y border rounded bg-white">
-                  {projectTasks.map((task) => (
+                  {projectTasks.map((task, idx) => (
                     <TaskRow
                       key={task.id}
                       task={task}
@@ -249,6 +262,7 @@ export default function ProjectDetailPage() {
                       onUpdate={(input) => updateTask(task.id, input)}
                       onSetLabels={(labelIds) => setTaskLabels(task.id, labelIds)}
                       onDelete={() => deleteTask(task.id)}
+                      {...moveHandlers(projectTasks, idx)}
                     />
                   ))}
                 </ul>

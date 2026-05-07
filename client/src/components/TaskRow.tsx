@@ -13,6 +13,8 @@ export function TaskRow({
   onUpdate,
   onSetLabels,
   onDelete,
+  onMoveUp,
+  onMoveDown,
 }: {
   task: Task;
   project: Project | undefined;
@@ -21,6 +23,8 @@ export function TaskRow({
   onUpdate: (input: UpdateTaskInput) => Promise<unknown>;
   onSetLabels: (labelIds: number[]) => Promise<unknown>;
   onDelete: () => Promise<unknown>;
+  onMoveUp?: (() => void) | undefined;
+  onMoveDown?: (() => void) | undefined;
 }) {
   const [minutes, setMinutes] = useState(task.estimatedMinutes?.toString() ?? "");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -168,6 +172,24 @@ export function TaskRow({
             ))}
           </span>
         )}
+        <button
+          type="button"
+          onClick={() => onMoveUp?.()}
+          disabled={!onMoveUp}
+          aria-label="Move up"
+          className="text-zinc-500 hover:text-zinc-900 disabled:opacity-30"
+        >
+          ▲
+        </button>
+        <button
+          type="button"
+          onClick={() => onMoveDown?.()}
+          disabled={!onMoveDown}
+          aria-label="Move down"
+          className="text-zinc-500 hover:text-zinc-900 disabled:opacity-30"
+        >
+          ▼
+        </button>
         <button
           type="button"
           onClick={() => setIsExpanded((v) => !v)}
