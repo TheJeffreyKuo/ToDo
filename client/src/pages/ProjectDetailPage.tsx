@@ -17,6 +17,8 @@ export default function ProjectDetailPage() {
   const { state: tasksState, createTask, updateTask, deleteTask, setTaskLabels } = useTasks();
 
   const [newTitle, setNewTitle] = useState("");
+  const [newScheduledFor, setNewScheduledFor] = useState<string>("");
+  const [newMinutes, setNewMinutes] = useState<string>("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -49,8 +51,19 @@ export default function ProjectDetailPage() {
     setCreating(true);
     setCreateError(null);
     try {
-      await createTask({ title, projectId });
+      const input: { title: string; projectId: number; scheduledFor?: string; estimatedMinutes?: number } = {
+        title,
+        projectId,
+      };
+      if (newScheduledFor) input.scheduledFor = newScheduledFor;
+      if (newMinutes.trim()) {
+        const n = Number(newMinutes.trim());
+        if (Number.isInteger(n) && n >= 1 && n <= 7 * 24 * 60) input.estimatedMinutes = n;
+      }
+      await createTask(input);
       setNewTitle("");
+      setNewScheduledFor("");
+      setNewMinutes("");
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : "Something went wrong");
     } finally {
@@ -178,13 +191,32 @@ export default function ProjectDetailPage() {
             </div>
 
             <section>
-              <form onSubmit={onCreate} className="flex gap-2 mb-4">
+              <form onSubmit={onCreate} className="flex flex-wrap gap-2 mb-4">
                 <input
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="What needs doing?"
                   disabled={creating}
-                  className="flex-1 rounded border px-3 py-2 text-sm"
+                  className="flex-1 min-w-[12rem] rounded border px-3 py-2 text-sm"
+                />
+                <input
+                  type="date"
+                  value={newScheduledFor}
+                  onChange={(e) => setNewScheduledFor(e.target.value)}
+                  disabled={creating}
+                  aria-label="Scheduled date"
+                  className="rounded border px-2 py-2 text-sm"
+                />
+                <input
+                  type="number"
+                  min={1}
+                  max={7 * 24 * 60}
+                  placeholder="min"
+                  value={newMinutes}
+                  onChange={(e) => setNewMinutes(e.target.value)}
+                  disabled={creating}
+                  aria-label="Estimated minutes"
+                  className="w-20 rounded border px-2 py-2 text-sm"
                 />
                 <button
                   type="submit"

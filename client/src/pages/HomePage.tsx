@@ -335,6 +335,8 @@ function TasksSection({
   const availableLabels = labelsState.status === "ready" ? labelsState.labels : [];
   const [newTitle, setNewTitle] = useState("");
   const [newProjectId, setNewProjectId] = useState<number | null>(null);
+  const [newScheduledFor, setNewScheduledFor] = useState<string>("");
+  const [newMinutes, setNewMinutes] = useState<string>("");
   const [filter, setFilter] = useState<TaskFilter>("all");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -387,8 +389,17 @@ function TasksSection({
     setCreating(true);
     setCreateError(null);
     try {
-      await createTask(newProjectId === null ? { title } : { title, projectId: newProjectId });
+      const input: CreateTaskInput = { title };
+      if (newProjectId !== null) input.projectId = newProjectId;
+      if (newScheduledFor) input.scheduledFor = newScheduledFor;
+      if (newMinutes.trim()) {
+        const n = Number(newMinutes.trim());
+        if (Number.isInteger(n) && n >= 1 && n <= 7 * 24 * 60) input.estimatedMinutes = n;
+      }
+      await createTask(input);
       setNewTitle("");
+      setNewScheduledFor("");
+      setNewMinutes("");
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : "Something went wrong");
     } finally {
@@ -417,18 +428,19 @@ function TasksSection({
         </select>
       </div>
 
-      <form onSubmit={onCreate} className="flex gap-2 mb-4">
+      <form onSubmit={onCreate} className="flex flex-wrap gap-2 mb-4">
         <input
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           placeholder="What needs doing?"
           disabled={creating}
-          className="flex-1 rounded border px-3 py-2 text-sm"
+          className="flex-1 min-w-[12rem] rounded border px-3 py-2 text-sm"
         />
         <select
           value={newProjectId === null ? "" : String(newProjectId)}
           onChange={(e) => setNewProjectId(e.target.value === "" ? null : Number(e.target.value))}
           disabled={creating}
+          aria-label="Project"
           className="rounded border px-2 py-2 text-sm"
         >
           <option value="">Inbox</option>
@@ -438,6 +450,25 @@ function TasksSection({
             </option>
           ))}
         </select>
+        <input
+          type="date"
+          value={newScheduledFor}
+          onChange={(e) => setNewScheduledFor(e.target.value)}
+          disabled={creating}
+          aria-label="Scheduled date"
+          className="rounded border px-2 py-2 text-sm"
+        />
+        <input
+          type="number"
+          min={1}
+          max={7 * 24 * 60}
+          placeholder="min"
+          value={newMinutes}
+          onChange={(e) => setNewMinutes(e.target.value)}
+          disabled={creating}
+          aria-label="Estimated minutes"
+          className="w-20 rounded border px-2 py-2 text-sm"
+        />
         <button
           type="submit"
           disabled={creating || !newTitle.trim()}
