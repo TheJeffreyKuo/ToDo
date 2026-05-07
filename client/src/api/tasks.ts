@@ -14,6 +14,8 @@ export type Task = {
   description: string | null;
   completed: boolean;
   dueDate: string | null;
+  scheduledFor: string | null;
+  estimatedMinutes: number | null;
   position: number;
   labels: TaskLabel[];
   createdAt: string;
@@ -25,6 +27,8 @@ export type CreateTaskInput = {
   description?: string;
   projectId?: number;
   dueDate?: string;
+  scheduledFor?: string;
+  estimatedMinutes?: number;
   position?: number;
 };
 
@@ -33,6 +37,8 @@ export type UpdateTaskInput = {
   description?: string | null;
   projectId?: number | null;
   dueDate?: string | null;
+  scheduledFor?: string | null;
+  estimatedMinutes?: number | null;
   completed?: boolean;
   position?: number;
 };

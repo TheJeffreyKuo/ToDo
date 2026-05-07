@@ -1,10 +1,10 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { useProjects } from "@/hooks/useProjects";
 import { useTasks } from "@/hooks/useTasks";
 import type { Project } from "@/api/projects";
-import type { Task } from "@/api/tasks";
+import type { Task, UpdateTaskInput } from "@/api/tasks";
 
 type ProjectsState =
   | { status: "loading" }
@@ -233,7 +233,7 @@ function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
               task={task}
               project={task.projectId !== null ? projectsById.get(task.projectId) : undefined}
               showProjectBadge={filter === "all"}
-              onToggle={(completed) => updateTask(task.id, { completed })}
+              onUpdate={(input) => updateTask(task.id, input)}
               onDelete={() => deleteTask(task.id)}
             />
           ))}
@@ -243,30 +243,70 @@ function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
   );
 }
 
+const MAX_ESTIMATED_MINUTES = 7 * 24 * 60;
+
 function TaskRow({
   task,
   project,
   showProjectBadge,
-  onToggle,
+  onUpdate,
   onDelete,
 }: {
   task: Task;
   project: Project | undefined;
   showProjectBadge: boolean;
-  onToggle: (completed: boolean) => Promise<unknown>;
+  onUpdate: (input: UpdateTaskInput) => Promise<unknown>;
   onDelete: () => Promise<unknown>;
 }) {
+  const [minutes, setMinutes] = useState(task.estimatedMinutes?.toString() ?? "");
+
+  useEffect(() => {
+    setMinutes(task.estimatedMinutes?.toString() ?? "");
+  }, [task.estimatedMinutes]);
+
+  function commitMinutes() {
+    const trimmed = minutes.trim();
+    if (trimmed === "") {
+      if (task.estimatedMinutes !== null) onUpdate({ estimatedMinutes: null });
+      return;
+    }
+    const n = Number(trimmed);
+    if (!Number.isInteger(n) || n < 1 || n > MAX_ESTIMATED_MINUTES) {
+      setMinutes(task.estimatedMinutes?.toString() ?? "");
+      return;
+    }
+    if (n !== task.estimatedMinutes) onUpdate({ estimatedMinutes: n });
+  }
+
   return (
-    <li className="flex items-center gap-3 p-3 text-sm">
+    <li className="flex items-center gap-2 p-3 text-sm">
       <input
         type="checkbox"
         checked={task.completed}
-        onChange={(e) => onToggle(e.target.checked)}
+        onChange={(e) => onUpdate({ completed: e.target.checked })}
         className="h-4 w-4"
       />
       <span className={task.completed ? "flex-1 line-through text-zinc-400" : "flex-1"}>
         {task.title}
       </span>
+      <input
+        type="date"
+        value={task.scheduledFor ?? ""}
+        onChange={(e) => onUpdate({ scheduledFor: e.target.value || null })}
+        aria-label="Scheduled date"
+        className="rounded border px-2 py-1 text-xs"
+      />
+      <input
+        type="number"
+        min={1}
+        max={MAX_ESTIMATED_MINUTES}
+        placeholder="min"
+        value={minutes}
+        onChange={(e) => setMinutes(e.target.value)}
+        onBlur={commitMinutes}
+        aria-label="Estimated minutes"
+        className="w-16 rounded border px-2 py-1 text-xs"
+      />
       {showProjectBadge && (
         <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">
           {project ? project.name : "Inbox"}
