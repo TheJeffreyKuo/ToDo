@@ -177,7 +177,12 @@ export function TaskRow({
         >
           {isExpanded ? "▾" : "▸"}
         </button>
-        <button onClick={() => onDelete()} className="text-zinc-500 hover:text-red-600">
+        <button
+          onClick={() => {
+            if (window.confirm("Delete this task?")) onDelete();
+          }}
+          className="text-zinc-500 hover:text-red-600"
+        >
           Delete
         </button>
       </div>

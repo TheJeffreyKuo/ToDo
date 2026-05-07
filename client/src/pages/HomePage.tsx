@@ -165,7 +165,15 @@ function ProjectsSection({
                     <span className="text-xs text-zinc-500">{formatSummary(summary)}</span>
                   )}
                   <button
-                    onClick={() => deleteProject(p.id)}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          "Delete this project? All tasks in it will be deleted too.",
+                        )
+                      ) {
+                        deleteProject(p.id);
+                      }
+                    }}
                     className="text-zinc-500 hover:text-red-600"
                   >
                     Delete
@@ -246,7 +254,9 @@ function LabelsSection({
                 {l.name}
               </span>
               <button
-                onClick={() => deleteLabel(l.id)}
+                onClick={() => {
+                  if (window.confirm("Delete this label?")) deleteLabel(l.id);
+                }}
                 className="text-zinc-500 hover:text-red-600"
               >
                 Delete
