@@ -171,6 +171,17 @@ function serializeFilter(f: TaskFilter): string {
   return typeof f === "number" ? String(f) : f;
 }
 
+function totalMinutes(tasks: Task[]): number {
+  return tasks.reduce((sum, t) => sum + (t.estimatedMinutes ?? 0), 0);
+}
+
+function formatMinutes(m: number): string {
+  if (m < 60) return `${m}m`;
+  const hours = Math.floor(m / 60);
+  const remainder = m % 60;
+  return remainder === 0 ? `${hours}h` : `${hours}h ${remainder}m`;
+}
+
 function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
   const { state, createTask, updateTask, deleteTask } = useTasks();
   const [newTitle, setNewTitle] = useState("");
@@ -199,6 +210,20 @@ function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
       return state.tasks.filter((t) => t.scheduledFor !== null && weekDays.includes(t.scheduledFor));
     return state.tasks.filter((t) => t.projectId === filter);
   }, [state, filter, today, weekDays]);
+
+  const weekTotals = useMemo(() => {
+    if (filter !== "week") return new Map<string, number>();
+    const map = new Map<string, number>();
+    for (const day of weekDays) map.set(day, 0);
+    for (const t of visibleTasks) {
+      if (t.scheduledFor && map.has(t.scheduledFor)) {
+        map.set(t.scheduledFor, (map.get(t.scheduledFor) ?? 0) + (t.estimatedMinutes ?? 0));
+      }
+    }
+    return map;
+  }, [filter, visibleTasks, weekDays]);
+
+  const todayTotal = filter === "today" ? totalMinutes(visibleTasks) : 0;
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -271,6 +296,13 @@ function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
       {state.status === "loading" && <div className="text-sm text-zinc-500">Loading…</div>}
       {state.status === "error" && <div className="text-sm text-red-600">{state.message}</div>}
 
+      {state.status === "ready" && filter === "today" && (
+        <div className="mb-3 text-sm text-zinc-600">
+          {dayLabel(today)} · Today
+          {todayTotal > 0 && ` · ${formatMinutes(todayTotal)} scheduled`}
+        </div>
+      )}
+
       {state.status === "ready" &&
         filter !== "week" &&
         (visibleTasks.length === 0 ? (
@@ -297,6 +329,7 @@ function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
           {weekDays.map((day) => {
             const dayTasks = visibleTasks.filter((t) => t.scheduledFor === day);
             const isToday = day === today;
+            const dayTotal = weekTotals.get(day) ?? 0;
             return (
               <div key={day}>
                 <h3
@@ -306,6 +339,11 @@ function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
                 >
                   {dayLabel(day)}
                   {isToday ? " · Today" : ""}
+                  {dayTotal > 0 && (
+                    <span className="ml-2 text-xs font-normal text-zinc-500">
+                      {formatMinutes(dayTotal)}
+                    </span>
+                  )}
                 </h3>
                 {dayTasks.length === 0 ? (
                   <div className="text-xs text-zinc-400">No tasks</div>
