@@ -35,6 +35,16 @@ export function useProjects() {
     return created;
   }, []);
 
+  const updateProject = useCallback(async (id: number, input: projectsApi.UpdateProjectInput) => {
+    const updated = await projectsApi.updateProject(id, input);
+    setState((prev) =>
+      prev.status === "ready"
+        ? { ...prev, projects: prev.projects.map((p) => (p.id === id ? updated : p)) }
+        : prev,
+    );
+    return updated;
+  }, []);
+
   const deleteProject = useCallback(async (id: number) => {
     await projectsApi.deleteProject(id);
     setState((prev) =>
@@ -44,5 +54,5 @@ export function useProjects() {
     );
   }, []);
 
-  return { state, createProject, deleteProject };
+  return { state, createProject, updateProject, deleteProject };
 }
