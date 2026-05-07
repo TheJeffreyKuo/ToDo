@@ -372,7 +372,13 @@ function TasksSection({
     return map;
   }, [filter, visibleTasks, weekDays]);
 
+  const weekBacklog = useMemo(() => {
+    if (filter !== "week" || state.status !== "ready") return [];
+    return state.tasks.filter((t) => t.scheduledFor === null);
+  }, [filter, state]);
+
   const todayTotal = filter === "today" ? totalMinutes(visibleTasks) : 0;
+  const backlogTotal = totalMinutes(weekBacklog);
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -519,6 +525,33 @@ function TasksSection({
               </div>
             );
           })}
+          {weekBacklog.length > 0 && (
+            <div>
+              <h3 className="text-sm text-zinc-600 mb-2">
+                Unscheduled
+                <span className="ml-2 text-xs font-normal text-zinc-500">
+                  {weekBacklog.length} task{weekBacklog.length === 1 ? "" : "s"}
+                  {backlogTotal > 0 ? ` · ${formatMinutes(backlogTotal)}` : ""}
+                </span>
+              </h3>
+              <ul className="divide-y border rounded bg-white">
+                {weekBacklog.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    project={
+                      task.projectId !== null ? projectsById.get(task.projectId) : undefined
+                    }
+                    showProjectBadge={true}
+                    availableLabels={availableLabels}
+                    onUpdate={(input) => updateTask(task.id, input)}
+                    onSetLabels={(labelIds) => setTaskLabels(task.id, labelIds)}
+                    onDelete={() => deleteTask(task.id)}
+                  />
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </section>
