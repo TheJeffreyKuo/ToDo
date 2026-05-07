@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { TimePicker } from "@/components/TimePicker";
 import type { Label } from "@/api/labels";
 import type { Project } from "@/api/projects";
 import type { Task, UpdateTaskInput } from "@/api/tasks";
-
-const MAX_ESTIMATED_MINUTES = 7 * 24 * 60;
 
 export function TaskRow({
   task,
@@ -26,7 +25,6 @@ export function TaskRow({
   onMoveUp?: (() => void) | undefined;
   onMoveDown?: (() => void) | undefined;
 }) {
-  const [minutes, setMinutes] = useState(task.estimatedMinutes?.toString() ?? "");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(task.title);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -35,26 +33,8 @@ export function TaskRow({
   const isCancellingTitleRef = useRef(false);
 
   useEffect(() => {
-    setMinutes(task.estimatedMinutes?.toString() ?? "");
-  }, [task.estimatedMinutes]);
-
-  useEffect(() => {
     setDescription(task.description ?? "");
   }, [task.description]);
-
-  function commitMinutes() {
-    const trimmed = minutes.trim();
-    if (trimmed === "") {
-      if (task.estimatedMinutes !== null) onUpdate({ estimatedMinutes: null });
-      return;
-    }
-    const n = Number(trimmed);
-    if (!Number.isInteger(n) || n < 1 || n > MAX_ESTIMATED_MINUTES) {
-      setMinutes(task.estimatedMinutes?.toString() ?? "");
-      return;
-    }
-    if (n !== task.estimatedMinutes) onUpdate({ estimatedMinutes: n });
-  }
 
   function startEditingTitle() {
     setTitleDraft(task.title);
@@ -143,16 +123,9 @@ export function TaskRow({
           aria-label="Scheduled date"
           className="rounded border px-2 py-1 text-xs"
         />
-        <input
-          type="number"
-          min={1}
-          max={MAX_ESTIMATED_MINUTES}
-          placeholder="min"
-          value={minutes}
-          onChange={(e) => setMinutes(e.target.value)}
-          onBlur={commitMinutes}
-          aria-label="Estimated minutes"
-          className="w-16 rounded border px-2 py-1 text-xs"
+        <TimePicker
+          minutes={task.estimatedMinutes}
+          onChange={(next) => onUpdate({ estimatedMinutes: next })}
         />
         {showProjectBadge && (
           <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">

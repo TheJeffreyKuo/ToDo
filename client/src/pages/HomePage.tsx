@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { TaskRow } from "@/components/TaskRow";
+import { TimePicker } from "@/components/TimePicker";
 import { useLabels } from "@/hooks/useLabels";
 import { useProjects } from "@/hooks/useProjects";
 import { useTasks, type TasksState } from "@/hooks/useTasks";
@@ -337,7 +338,7 @@ function TasksSection({
   const [newTitle, setNewTitle] = useState("");
   const [newProjectId, setNewProjectId] = useState<number | null>(null);
   const [newScheduledFor, setNewScheduledFor] = useState<string>("");
-  const [newMinutes, setNewMinutes] = useState<string>("");
+  const [newMinutes, setNewMinutes] = useState<number | null>(null);
   const [filter, setFilter] = useState<TaskFilter>("all");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -405,14 +406,11 @@ function TasksSection({
       const input: CreateTaskInput = { title };
       if (newProjectId !== null) input.projectId = newProjectId;
       if (newScheduledFor) input.scheduledFor = newScheduledFor;
-      if (newMinutes.trim()) {
-        const n = Number(newMinutes.trim());
-        if (Number.isInteger(n) && n >= 1 && n <= 7 * 24 * 60) input.estimatedMinutes = n;
-      }
+      if (newMinutes !== null) input.estimatedMinutes = newMinutes;
       await createTask(input);
       setNewTitle("");
       setNewScheduledFor("");
-      setNewMinutes("");
+      setNewMinutes(null);
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : "Something went wrong");
     } finally {
@@ -471,17 +469,7 @@ function TasksSection({
           aria-label="Scheduled date"
           className="rounded border px-2 py-2 text-sm"
         />
-        <input
-          type="number"
-          min={1}
-          max={7 * 24 * 60}
-          placeholder="min"
-          value={newMinutes}
-          onChange={(e) => setNewMinutes(e.target.value)}
-          disabled={creating}
-          aria-label="Estimated minutes"
-          className="w-20 rounded border px-2 py-2 text-sm"
-        />
+        <TimePicker minutes={newMinutes} onChange={setNewMinutes} disabled={creating} />
         <button
           type="submit"
           disabled={creating || !newTitle.trim()}
