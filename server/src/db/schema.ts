@@ -3,7 +3,10 @@ import {
   bigserial,
   boolean,
   customType,
+  date,
   doublePrecision,
+  index,
+  integer,
   pgTable,
   primaryKey,
   text,
@@ -57,22 +60,30 @@ export const labels = pgTable(
   }),
 );
 
-export const tasks = pgTable("tasks", {
-  id: bigserial("id", { mode: "number" }).primaryKey(),
-  userId: bigint("user_id", { mode: "number" })
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  projectId: bigint("project_id", { mode: "number" }).references(() => projects.id, {
-    onDelete: "cascade",
+export const tasks = pgTable(
+  "tasks",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    userId: bigint("user_id", { mode: "number" })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    projectId: bigint("project_id", { mode: "number" }).references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    title: text("title").notNull(),
+    description: text("description"),
+    completed: boolean("completed").notNull().default(false),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    scheduledFor: date("scheduled_for", { mode: "string" }),
+    estimatedMinutes: integer("estimated_minutes"),
+    position: doublePrecision("position").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userScheduledIdx: index("tasks_user_scheduled_idx").on(t.userId, t.scheduledFor),
   }),
-  title: text("title").notNull(),
-  description: text("description"),
-  completed: boolean("completed").notNull().default(false),
-  dueDate: timestamp("due_date", { withTimezone: true }),
-  position: doublePrecision("position").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+);
 
 export const taskLabels = pgTable(
   "task_labels",
