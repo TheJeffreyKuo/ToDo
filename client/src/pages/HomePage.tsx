@@ -126,8 +126,50 @@ function ProjectsSection({
   );
 }
 
-// "all" = no filter; "inbox" = projectId is null; number = a specific project's id
-type TaskFilter = "all" | "inbox" | number;
+// "all" = no filter; "inbox" = projectId is null; "today"/"week" = planner views by scheduledFor; number = a specific project's id
+type TaskFilter = "all" | "inbox" | "today" | "week" | number;
+
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function todayLocal(): string {
+  return formatLocalDate(new Date());
+}
+
+// Monday-first 7-day window covering the current local week.
+function weekDaysLocal(): string[] {
+  const now = new Date();
+  const dow = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const offsetToMon = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetToMon);
+  const days: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    days.push(formatLocalDate(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i)));
+  }
+  return days;
+}
+
+function dayLabel(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number) as [number, number, number];
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function parseFilter(v: string): TaskFilter {
+  if (v === "all" || v === "inbox" || v === "today" || v === "week") return v;
+  return Number(v);
+}
+
+function serializeFilter(f: TaskFilter): string {
+  return typeof f === "number" ? String(f) : f;
+}
 
 function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
   const { state, createTask, updateTask, deleteTask } = useTasks();
@@ -144,12 +186,19 @@ function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
     return map;
   }, [projects]);
 
+  // Computed once on mount; if you keep the page open past midnight, refresh to get a new "today".
+  const today = useMemo(() => todayLocal(), []);
+  const weekDays = useMemo(() => weekDaysLocal(), []);
+
   const visibleTasks = useMemo(() => {
     if (state.status !== "ready") return [];
     if (filter === "all") return state.tasks;
     if (filter === "inbox") return state.tasks.filter((t) => t.projectId === null);
+    if (filter === "today") return state.tasks.filter((t) => t.scheduledFor === today);
+    if (filter === "week")
+      return state.tasks.filter((t) => t.scheduledFor !== null && weekDays.includes(t.scheduledFor));
     return state.tasks.filter((t) => t.projectId === filter);
-  }, [state, filter]);
+  }, [state, filter, today, weekDays]);
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -172,14 +221,13 @@ function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold">Tasks</h2>
         <select
-          value={filter === "all" || filter === "inbox" ? filter : String(filter)}
-          onChange={(e) => {
-            const v = e.target.value;
-            setFilter(v === "all" || v === "inbox" ? v : Number(v));
-          }}
+          value={serializeFilter(filter)}
+          onChange={(e) => setFilter(parseFilter(e.target.value))}
           className="rounded border px-2 py-1 text-sm"
         >
           <option value="all">All</option>
+          <option value="today">Today</option>
+          <option value="week">This Week</option>
           <option value="inbox">Inbox</option>
           {projects.map((p) => (
             <option key={p.id} value={p.id}>
@@ -222,22 +270,65 @@ function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
 
       {state.status === "loading" && <div className="text-sm text-zinc-500">Loading…</div>}
       {state.status === "error" && <div className="text-sm text-red-600">{state.message}</div>}
-      {state.status === "ready" && visibleTasks.length === 0 && (
-        <div className="text-sm text-zinc-500">No tasks{filter === "all" ? "" : " here"} yet.</div>
-      )}
-      {state.status === "ready" && visibleTasks.length > 0 && (
-        <ul className="divide-y border rounded bg-white">
-          {visibleTasks.map((task) => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              project={task.projectId !== null ? projectsById.get(task.projectId) : undefined}
-              showProjectBadge={filter === "all"}
-              onUpdate={(input) => updateTask(task.id, input)}
-              onDelete={() => deleteTask(task.id)}
-            />
-          ))}
-        </ul>
+
+      {state.status === "ready" &&
+        filter !== "week" &&
+        (visibleTasks.length === 0 ? (
+          <div className="text-sm text-zinc-500">
+            No tasks{filter === "all" ? "" : " here"} yet.
+          </div>
+        ) : (
+          <ul className="divide-y border rounded bg-white">
+            {visibleTasks.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                project={task.projectId !== null ? projectsById.get(task.projectId) : undefined}
+                showProjectBadge={filter === "all" || filter === "today"}
+                onUpdate={(input) => updateTask(task.id, input)}
+                onDelete={() => deleteTask(task.id)}
+              />
+            ))}
+          </ul>
+        ))}
+
+      {state.status === "ready" && filter === "week" && (
+        <div className="space-y-4">
+          {weekDays.map((day) => {
+            const dayTasks = visibleTasks.filter((t) => t.scheduledFor === day);
+            const isToday = day === today;
+            return (
+              <div key={day}>
+                <h3
+                  className={`text-sm mb-2 ${
+                    isToday ? "font-semibold text-zinc-900" : "text-zinc-600"
+                  }`}
+                >
+                  {dayLabel(day)}
+                  {isToday ? " · Today" : ""}
+                </h3>
+                {dayTasks.length === 0 ? (
+                  <div className="text-xs text-zinc-400">No tasks</div>
+                ) : (
+                  <ul className="divide-y border rounded bg-white">
+                    {dayTasks.map((task) => (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        project={
+                          task.projectId !== null ? projectsById.get(task.projectId) : undefined
+                        }
+                        showProjectBadge={true}
+                        onUpdate={(input) => updateTask(task.id, input)}
+                        onDelete={() => deleteTask(task.id)}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </section>
   );
