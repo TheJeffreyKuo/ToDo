@@ -42,24 +42,15 @@ export function formatSummary(summary: TaskSummary): string {
   return parts.join(" · ");
 }
 
-// Compute the new position value for moving a task up or down within an ordered list.
-// Returns null when the task is already at the boundary (no neighbor on that side).
+// Compute a position value that places an item between two neighbors in an ordered list.
+// Pass the new neighbors after the conceptual move; either side may be undefined for ends.
 // Uses midpoint between neighbors so we never have to renumber adjacent rows.
-export function nextPositionForMove(
-  tasks: Task[],
-  idx: number,
-  direction: "up" | "down",
-): number | null {
-  if (direction === "up") {
-    if (idx <= 0) return null;
-    const above = tasks[idx - 1];
-    if (!above) return null;
-    const aboveAbove = idx >= 2 ? tasks[idx - 2] : undefined;
-    return aboveAbove ? (above.position + aboveAbove.position) / 2 : above.position - 1;
-  }
-  if (idx >= tasks.length - 1) return null;
-  const below = tasks[idx + 1];
-  if (!below) return null;
-  const belowBelow = idx + 2 < tasks.length ? tasks[idx + 2] : undefined;
-  return belowBelow ? (below.position + belowBelow.position) / 2 : below.position + 1;
+export function positionBetween(
+  prev: number | undefined,
+  next: number | undefined,
+): number {
+  if (prev === undefined && next === undefined) return 0;
+  if (prev === undefined) return (next as number) - 1;
+  if (next === undefined) return prev + 1;
+  return (prev + next) / 2;
 }

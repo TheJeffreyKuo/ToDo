@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { TimePicker } from "@/components/TimePicker";
 import type { Label } from "@/api/labels";
 import type { Project } from "@/api/projects";
@@ -12,8 +14,6 @@ export function TaskRow({
   onUpdate,
   onSetLabels,
   onDelete,
-  onMoveUp,
-  onMoveDown,
 }: {
   task: Task;
   project: Project | undefined;
@@ -22,8 +22,6 @@ export function TaskRow({
   onUpdate: (input: UpdateTaskInput) => Promise<unknown>;
   onSetLabels: (labelIds: number[]) => Promise<unknown>;
   onDelete: () => Promise<unknown>;
-  onMoveUp?: (() => void) | undefined;
-  onMoveDown?: (() => void) | undefined;
 }) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(task.title);
@@ -31,6 +29,15 @@ export function TaskRow({
   const [description, setDescription] = useState(task.description ?? "");
   // Set true to skip the commit that an Escape-triggered unmount may otherwise schedule.
   const isCancellingTitleRef = useRef(false);
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : undefined,
+  };
 
   useEffect(() => {
     setDescription(task.description ?? "");
@@ -85,8 +92,18 @@ export function TaskRow({
   }
 
   return (
-    <li className="text-sm">
+    <li ref={setNodeRef} style={style} className="text-sm bg-white">
       <div className="flex items-center gap-2 p-3">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          aria-label="Drag to reorder"
+          title="Drag to reorder"
+          className="cursor-grab text-zinc-400 hover:text-zinc-700 active:cursor-grabbing select-none"
+        >
+          ⋮⋮
+        </button>
         <input
           type="checkbox"
           checked={task.completed}
@@ -145,24 +162,6 @@ export function TaskRow({
             ))}
           </span>
         )}
-        <button
-          type="button"
-          onClick={() => onMoveUp?.()}
-          disabled={!onMoveUp}
-          aria-label="Move up"
-          className="text-zinc-500 hover:text-zinc-900 disabled:opacity-30"
-        >
-          ▲
-        </button>
-        <button
-          type="button"
-          onClick={() => onMoveDown?.()}
-          disabled={!onMoveDown}
-          aria-label="Move down"
-          className="text-zinc-500 hover:text-zinc-900 disabled:opacity-30"
-        >
-          ▼
-        </button>
         <button
           type="button"
           onClick={() => setIsExpanded((v) => !v)}
