@@ -13,6 +13,8 @@ export type TaskDTO = {
   description: string | null;
   completed: boolean;
   dueDate: string | null;
+  scheduledFor: string | null;
+  estimatedMinutes: number | null;
   position: number;
   labels: LabelDTO[];
   createdAt: string;
@@ -36,6 +38,8 @@ function toTaskDTO(row: TaskRow, taskLabelsForRow: LabelDTO[]): TaskDTO {
     description: row.description,
     completed: row.completed,
     dueDate: row.dueDate ? row.dueDate.toISOString() : null,
+    scheduledFor: row.scheduledFor,
+    estimatedMinutes: row.estimatedMinutes,
     position: row.position,
     labels: taskLabelsForRow,
     createdAt: row.createdAt.toISOString(),
@@ -101,6 +105,8 @@ export async function createTask(userId: number, input: CreateTaskInput): Promis
       title: input.title,
       description: input.description ?? null,
       dueDate: input.dueDate ? new Date(input.dueDate) : null,
+      scheduledFor: input.scheduledFor ?? null,
+      estimatedMinutes: input.estimatedMinutes ?? null,
       position,
     })
     .returning();
@@ -123,6 +129,8 @@ export async function updateTask(
     description: string | null;
     projectId: number | null;
     dueDate: Date | null;
+    scheduledFor: string | null;
+    estimatedMinutes: number | null;
     completed: boolean;
     position: number;
     updatedAt: Date;
@@ -132,6 +140,8 @@ export async function updateTask(
   if (input.description !== undefined) updates.description = input.description;
   if (input.projectId !== undefined) updates.projectId = input.projectId;
   if (input.dueDate !== undefined) updates.dueDate = input.dueDate ? new Date(input.dueDate) : null;
+  if (input.scheduledFor !== undefined) updates.scheduledFor = input.scheduledFor;
+  if (input.estimatedMinutes !== undefined) updates.estimatedMinutes = input.estimatedMinutes;
   if (input.completed !== undefined) updates.completed = input.completed;
   if (input.position !== undefined) updates.position = input.position;
 

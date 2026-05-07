@@ -1,10 +1,14 @@
 import { z } from "zod";
 
+const MAX_ESTIMATED_MINUTES = 7 * 24 * 60; // one week — sanity bound, not a UX cap
+
 export const createTaskSchema = z.object({
   title: z.string().trim().min(1).max(500),
   description: z.string().max(10000).optional(),
   projectId: z.number().int().positive().optional(),
   dueDate: z.string().datetime({ offset: true }).optional(),
+  scheduledFor: z.string().date().optional(),
+  estimatedMinutes: z.number().int().positive().max(MAX_ESTIMATED_MINUTES).optional(),
   position: z.number().optional(),
 });
 
@@ -14,6 +18,8 @@ export const updateTaskSchema = z
     description: z.string().max(10000).nullable().optional(),
     projectId: z.number().int().positive().nullable().optional(),
     dueDate: z.string().datetime({ offset: true }).nullable().optional(),
+    scheduledFor: z.string().date().nullable().optional(),
+    estimatedMinutes: z.number().int().positive().max(MAX_ESTIMATED_MINUTES).nullable().optional(),
     completed: z.boolean().optional(),
     position: z.number().optional(),
   })
