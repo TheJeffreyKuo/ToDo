@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { TaskRow } from "@/components/TaskRow";
+import { useLabels } from "@/hooks/useLabels";
 import { useProjects } from "@/hooks/useProjects";
 import { useTasks } from "@/hooks/useTasks";
 
@@ -11,7 +12,9 @@ export default function ProjectDetailPage() {
   const { id: idParam } = useParams<{ id: string }>();
   const projectId = idParam ? Number(idParam) : NaN;
   const projectsHook = useProjects();
-  const { state: tasksState, createTask, updateTask, deleteTask } = useTasks();
+  const labelsHook = useLabels();
+  const { state: tasksState, createTask, updateTask, deleteTask, setTaskLabels } = useTasks();
+  const availableLabels = labelsHook.state.status === "ready" ? labelsHook.state.labels : [];
 
   const [newTitle, setNewTitle] = useState("");
   const [creating, setCreating] = useState(false);
@@ -126,7 +129,9 @@ export default function ProjectDetailPage() {
                       task={task}
                       project={project}
                       showProjectBadge={false}
+                      availableLabels={availableLabels}
                       onUpdate={(input) => updateTask(task.id, input)}
+                      onSetLabels={(labelIds) => setTaskLabels(task.id, labelIds)}
                       onDelete={() => deleteTask(task.id)}
                     />
                   ))}

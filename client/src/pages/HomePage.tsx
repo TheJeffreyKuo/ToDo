@@ -3,8 +3,10 @@ import { Link } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { TaskRow } from "@/components/TaskRow";
+import { useLabels } from "@/hooks/useLabels";
 import { useProjects } from "@/hooks/useProjects";
 import { useTasks } from "@/hooks/useTasks";
+import type { Label } from "@/api/labels";
 import type { Project } from "@/api/projects";
 import type { Task } from "@/api/tasks";
 
@@ -13,9 +15,15 @@ type ProjectsState =
   | { status: "ready"; projects: Project[] }
   | { status: "error"; message: string };
 
+type LabelsState =
+  | { status: "loading" }
+  | { status: "ready"; labels: Label[] }
+  | { status: "error"; message: string };
+
 export default function HomePage() {
   const { state: authState, logout } = useAuth();
   const projectsHook = useProjects();
+  const labelsHook = useLabels();
 
   if (authState.status !== "authenticated") return null;
 
@@ -40,7 +48,12 @@ export default function HomePage() {
           createProject={projectsHook.createProject}
           deleteProject={projectsHook.deleteProject}
         />
-        <TasksSection projectsState={projectsHook.state} />
+        <LabelsSection
+          state={labelsHook.state}
+          createLabel={labelsHook.createLabel}
+          deleteLabel={labelsHook.deleteLabel}
+        />
+        <TasksSection projectsState={projectsHook.state} labelsState={labelsHook.state} />
       </main>
     </div>
   );
@@ -131,6 +144,85 @@ function ProjectsSection({
   );
 }
 
+function LabelsSection({
+  state,
+  createLabel,
+  deleteLabel,
+}: {
+  state: LabelsState;
+  createLabel: (input: { name: string }) => Promise<unknown>;
+  deleteLabel: (id: number) => Promise<unknown>;
+}) {
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  async function onCreate(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const name = newName.trim();
+    if (!name) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      await createLabel({ name });
+      setNewName("");
+    } catch (err) {
+      setCreateError(err instanceof ApiError ? err.message : "Something went wrong");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold mb-3">Labels</h2>
+      <form onSubmit={onCreate} className="flex gap-2 mb-4">
+        <input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="New label name"
+          disabled={creating}
+          className="flex-1 rounded border px-3 py-2 text-sm"
+        />
+        <button
+          type="submit"
+          disabled={creating || !newName.trim()}
+          className="rounded bg-zinc-900 text-white px-4 py-2 text-sm disabled:opacity-50"
+        >
+          Add
+        </button>
+      </form>
+      {createError && <div className="mb-3 text-sm text-red-600">{createError}</div>}
+
+      {state.status === "loading" && <div className="text-sm text-zinc-500">Loading…</div>}
+      {state.status === "error" && <div className="text-sm text-red-600">{state.message}</div>}
+      {state.status === "ready" && state.labels.length === 0 && (
+        <div className="text-sm text-zinc-500">No labels yet.</div>
+      )}
+      {state.status === "ready" && state.labels.length > 0 && (
+        <ul className="divide-y border rounded bg-white">
+          {state.labels.map((l) => (
+            <li key={l.id} className="flex items-center justify-between p-3 text-sm">
+              <span
+                className="rounded px-2 py-0.5 text-xs"
+                style={{ background: l.color ?? "#e4e4e7", color: l.color ? "#fff" : "#3f3f46" }}
+              >
+                {l.name}
+              </span>
+              <button
+                onClick={() => deleteLabel(l.id)}
+                className="text-zinc-500 hover:text-red-600"
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 // "all" = no filter; "inbox" = projectId is null; "today"/"week" = planner views by scheduledFor; number = a specific project's id
 type TaskFilter = "all" | "inbox" | "today" | "week" | number;
 
@@ -187,8 +279,15 @@ function formatMinutes(m: number): string {
   return remainder === 0 ? `${hours}h` : `${hours}h ${remainder}m`;
 }
 
-function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
-  const { state, createTask, updateTask, deleteTask } = useTasks();
+function TasksSection({
+  projectsState,
+  labelsState,
+}: {
+  projectsState: ProjectsState;
+  labelsState: LabelsState;
+}) {
+  const { state, createTask, updateTask, deleteTask, setTaskLabels } = useTasks();
+  const availableLabels = labelsState.status === "ready" ? labelsState.labels : [];
   const [newTitle, setNewTitle] = useState("");
   const [newProjectId, setNewProjectId] = useState<number | null>(null);
   const [filter, setFilter] = useState<TaskFilter>("all");
@@ -322,7 +421,9 @@ function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
                 task={task}
                 project={task.projectId !== null ? projectsById.get(task.projectId) : undefined}
                 showProjectBadge={filter === "all" || filter === "today"}
+                availableLabels={availableLabels}
                 onUpdate={(input) => updateTask(task.id, input)}
+                onSetLabels={(labelIds) => setTaskLabels(task.id, labelIds)}
                 onDelete={() => deleteTask(task.id)}
               />
             ))}
@@ -362,7 +463,9 @@ function TasksSection({ projectsState }: { projectsState: ProjectsState }) {
                           task.projectId !== null ? projectsById.get(task.projectId) : undefined
                         }
                         showProjectBadge={true}
+                        availableLabels={availableLabels}
                         onUpdate={(input) => updateTask(task.id, input)}
+                        onSetLabels={(labelIds) => setTaskLabels(task.id, labelIds)}
                         onDelete={() => deleteTask(task.id)}
                       />
                     ))}

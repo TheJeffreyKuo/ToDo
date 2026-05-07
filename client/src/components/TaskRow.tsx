@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import type { Label } from "@/api/labels";
 import type { Project } from "@/api/projects";
 import type { Task, UpdateTaskInput } from "@/api/tasks";
 
@@ -8,13 +9,17 @@ export function TaskRow({
   task,
   project,
   showProjectBadge,
+  availableLabels,
   onUpdate,
+  onSetLabels,
   onDelete,
 }: {
   task: Task;
   project: Project | undefined;
   showProjectBadge: boolean;
+  availableLabels: Label[];
   onUpdate: (input: UpdateTaskInput) => Promise<unknown>;
+  onSetLabels: (labelIds: number[]) => Promise<unknown>;
   onDelete: () => Promise<unknown>;
 }) {
   const [minutes, setMinutes] = useState(task.estimatedMinutes?.toString() ?? "");
@@ -86,6 +91,13 @@ export function TaskRow({
     const trimmed = description.trim();
     const next = trimmed === "" ? null : trimmed;
     if (next !== task.description) onUpdate({ description: next });
+  }
+
+  function toggleLabel(labelId: number) {
+    const next = new Set(task.labels.map((l) => l.id));
+    if (next.has(labelId)) next.delete(labelId);
+    else next.add(labelId);
+    onSetLabels([...next]);
   }
 
   return (
@@ -170,7 +182,7 @@ export function TaskRow({
         </button>
       </div>
       {isExpanded && (
-        <div className="px-3 pb-3">
+        <div className="px-3 pb-3 space-y-2">
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -180,6 +192,35 @@ export function TaskRow({
             rows={3}
             className="w-full rounded border px-2 py-1 text-xs"
           />
+          {availableLabels.length > 0 && (
+            <div>
+              <div className="text-xs text-zinc-500 mb-1">Labels</div>
+              <div className="flex flex-wrap gap-2">
+                {availableLabels.map((l) => {
+                  const checked = task.labels.some((tl) => tl.id === l.id);
+                  return (
+                    <label key={l.id} className="flex items-center gap-1 text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleLabel(l.id)}
+                        className="h-3 w-3"
+                      />
+                      <span
+                        className="rounded px-2 py-0.5"
+                        style={{
+                          background: l.color ?? "#e4e4e7",
+                          color: l.color ? "#fff" : "#3f3f46",
+                        }}
+                      >
+                        {l.name}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </li>
