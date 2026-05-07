@@ -5,10 +5,21 @@ import { useAuth } from "@/auth/AuthContext";
 import { TaskRow } from "@/components/TaskRow";
 import { useLabels } from "@/hooks/useLabels";
 import { useProjects } from "@/hooks/useProjects";
-import { useTasks } from "@/hooks/useTasks";
+import { useTasks, type TasksState } from "@/hooks/useTasks";
+import {
+  formatMinutes,
+  formatSummary,
+  summariesByProject,
+  totalMinutes,
+  type TaskSummary,
+} from "@/lib/tasks";
 import type { Label } from "@/api/labels";
 import type { Project } from "@/api/projects";
-import type { Task } from "@/api/tasks";
+import type {
+  CreateTaskInput,
+  Task,
+  UpdateTaskInput,
+} from "@/api/tasks";
 
 type ProjectsState =
   | { status: "loading" }
@@ -24,6 +35,7 @@ export default function HomePage() {
   const { state: authState, logout } = useAuth();
   const projectsHook = useProjects();
   const labelsHook = useLabels();
+  const tasksHook = useTasks();
 
   if (authState.status !== "authenticated") return null;
 
@@ -45,6 +57,7 @@ export default function HomePage() {
       <main className="max-w-2xl mx-auto mt-8 space-y-10">
         <ProjectsSection
           state={projectsHook.state}
+          tasksState={tasksHook.state}
           createProject={projectsHook.createProject}
           deleteProject={projectsHook.deleteProject}
         />
@@ -53,7 +66,15 @@ export default function HomePage() {
           createLabel={labelsHook.createLabel}
           deleteLabel={labelsHook.deleteLabel}
         />
-        <TasksSection projectsState={projectsHook.state} labelsState={labelsHook.state} />
+        <TasksSection
+          projectsState={projectsHook.state}
+          labelsState={labelsHook.state}
+          tasksState={tasksHook.state}
+          createTask={tasksHook.createTask}
+          updateTask={tasksHook.updateTask}
+          deleteTask={tasksHook.deleteTask}
+          setTaskLabels={tasksHook.setTaskLabels}
+        />
       </main>
     </div>
   );
@@ -61,13 +82,20 @@ export default function HomePage() {
 
 function ProjectsSection({
   state,
+  tasksState,
   createProject,
   deleteProject,
 }: {
   state: ProjectsState;
+  tasksState: TasksState;
   createProject: (input: { name: string }) => Promise<unknown>;
   deleteProject: (id: number) => Promise<unknown>;
 }) {
+  const summaries = useMemo<Map<number, TaskSummary>>(
+    () =>
+      tasksState.status === "ready" ? summariesByProject(tasksState.tasks) : new Map(),
+    [tasksState],
+  );
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -116,28 +144,36 @@ function ProjectsSection({
       )}
       {state.status === "ready" && state.projects.length > 0 && (
         <ul className="divide-y border rounded bg-white">
-          {state.projects.map((p) => (
-            <li key={p.id} className="flex items-center justify-between p-3 text-sm">
-              <Link
-                to={`/projects/${p.id}`}
-                className="flex items-center gap-2 hover:underline"
-              >
-                {p.color && (
-                  <span
-                    className="inline-block w-3 h-3 rounded-full"
-                    style={{ background: p.color }}
-                  />
-                )}
-                <span>{p.name}</span>
-              </Link>
-              <button
-                onClick={() => deleteProject(p.id)}
-                className="text-zinc-500 hover:text-red-600"
-              >
-                Delete
-              </button>
-            </li>
-          ))}
+          {state.projects.map((p) => {
+            const summary = summaries.get(p.id);
+            return (
+              <li key={p.id} className="flex items-center justify-between p-3 text-sm">
+                <Link
+                  to={`/projects/${p.id}`}
+                  className="flex items-center gap-2 hover:underline"
+                >
+                  {p.color && (
+                    <span
+                      className="inline-block w-3 h-3 rounded-full"
+                      style={{ background: p.color }}
+                    />
+                  )}
+                  <span>{p.name}</span>
+                </Link>
+                <div className="flex items-center gap-3">
+                  {summary && (
+                    <span className="text-xs text-zinc-500">{formatSummary(summary)}</span>
+                  )}
+                  <button
+                    onClick={() => deleteProject(p.id)}
+                    className="text-zinc-500 hover:text-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
@@ -268,25 +304,24 @@ function serializeFilter(f: TaskFilter): string {
   return typeof f === "number" ? String(f) : f;
 }
 
-function totalMinutes(tasks: Task[]): number {
-  return tasks.reduce((sum, t) => sum + (t.estimatedMinutes ?? 0), 0);
-}
-
-function formatMinutes(m: number): string {
-  if (m < 60) return `${m}m`;
-  const hours = Math.floor(m / 60);
-  const remainder = m % 60;
-  return remainder === 0 ? `${hours}h` : `${hours}h ${remainder}m`;
-}
-
 function TasksSection({
   projectsState,
   labelsState,
+  tasksState,
+  createTask,
+  updateTask,
+  deleteTask,
+  setTaskLabels,
 }: {
   projectsState: ProjectsState;
   labelsState: LabelsState;
+  tasksState: TasksState;
+  createTask: (input: CreateTaskInput) => Promise<Task>;
+  updateTask: (id: number, input: UpdateTaskInput) => Promise<Task>;
+  deleteTask: (id: number) => Promise<void>;
+  setTaskLabels: (id: number, labelIds: number[]) => Promise<Task>;
 }) {
-  const { state, createTask, updateTask, deleteTask, setTaskLabels } = useTasks();
+  const state = tasksState;
   const availableLabels = labelsState.status === "ready" ? labelsState.labels : [];
   const [newTitle, setNewTitle] = useState("");
   const [newProjectId, setNewProjectId] = useState<number | null>(null);

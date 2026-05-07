@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
@@ -6,6 +6,7 @@ import { TaskRow } from "@/components/TaskRow";
 import { useLabels } from "@/hooks/useLabels";
 import { useProjects } from "@/hooks/useProjects";
 import { useTasks } from "@/hooks/useTasks";
+import { formatSummary, summarizeTasks } from "@/lib/tasks";
 
 export default function ProjectDetailPage() {
   const { state: authState, logout } = useAuth();
@@ -28,10 +29,14 @@ export default function ProjectDetailPage() {
       ? projectsState.projects.find((p) => p.id === projectId)
       : undefined;
 
-  const projectTasks =
-    tasksState.status === "ready"
-      ? tasksState.tasks.filter((t) => t.projectId === projectId)
-      : [];
+  const projectTasks = useMemo(
+    () =>
+      tasksState.status === "ready"
+        ? tasksState.tasks.filter((t) => t.projectId === projectId)
+        : [],
+    [tasksState, projectId],
+  );
+  const summary = useMemo(() => summarizeTasks(projectTasks), [projectTasks]);
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -83,14 +88,19 @@ export default function ProjectDetailPage() {
         )}
         {projectsState.status === "ready" && project && (
           <>
-            <div className="flex items-center gap-2">
-              {project.color && (
-                <span
-                  className="inline-block w-3 h-3 rounded-full"
-                  style={{ background: project.color }}
-                />
+            <div>
+              <div className="flex items-center gap-2">
+                {project.color && (
+                  <span
+                    className="inline-block w-3 h-3 rounded-full"
+                    style={{ background: project.color }}
+                  />
+                )}
+                <h2 className="text-xl font-semibold">{project.name}</h2>
+              </div>
+              {summary.total > 0 && (
+                <div className="mt-1 text-sm text-zinc-500">{formatSummary(summary)}</div>
               )}
-              <h2 className="text-xl font-semibold">{project.name}</h2>
             </div>
 
             <section>

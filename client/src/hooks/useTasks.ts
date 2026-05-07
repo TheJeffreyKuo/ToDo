@@ -2,13 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/api/client";
 import * as tasksApi from "@/api/tasks";
 
-type State =
+export type TasksState =
   | { status: "loading" }
   | { status: "ready"; tasks: tasksApi.Task[] }
   | { status: "error"; message: string };
 
 export function useTasks() {
-  const [state, setState] = useState<State>({ status: "loading" });
+  const [state, setState] = useState<TasksState>({ status: "loading" });
 
   useEffect(() => {
     let cancelled = false;
