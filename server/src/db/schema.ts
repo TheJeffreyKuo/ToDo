@@ -53,7 +53,6 @@ export const tasks = pgTable(
     title: text("title").notNull(),
     description: text("description"),
     completed: boolean("completed").notNull().default(false),
-    dueDate: timestamp("due_date", { withTimezone: true }),
     scheduledFor: date("scheduled_for", { mode: "string" }),
     estimatedMinutes: integer("estimated_minutes"),
     position: doublePrecision("position").notNull(),

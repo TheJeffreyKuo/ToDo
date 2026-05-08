@@ -12,7 +12,6 @@ export type Task = {
   title: string;
   description: string | null;
   completed: boolean;
-  dueDate: string | null;
   scheduledFor: string | null;
   estimatedMinutes: number | null;
   position: number;
@@ -24,7 +23,6 @@ export type Task = {
 export type CreateTaskInput = {
   title: string;
   description?: string;
-  dueDate?: string;
   scheduledFor?: string;
   estimatedMinutes?: number;
   position?: number;
@@ -33,7 +31,6 @@ export type CreateTaskInput = {
 export type UpdateTaskInput = {
   title?: string;
   description?: string | null;
-  dueDate?: string | null;
   scheduledFor?: string | null;
   estimatedMinutes?: number | null;
   completed?: boolean;
@@ -63,12 +60,4 @@ export async function updateTask(id: number, input: UpdateTaskInput): Promise<Ta
 
 export async function deleteTask(id: number): Promise<void> {
   await api(`/api/tasks/${id}`, { method: "DELETE" });
-}
-
-export async function setTaskLabels(id: number, labelIds: number[]): Promise<Task> {
-  const { task } = await api<{ task: Task }>(`/api/tasks/${id}/labels`, {
-    method: "PUT",
-    body: JSON.stringify({ labelIds }),
-  });
-  return task;
 }

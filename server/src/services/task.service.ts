@@ -3,7 +3,6 @@ import type { CreateTaskInput, UpdateTaskInput } from "@todo/shared/schemas/task
 import { db } from "../db/client.js";
 import { labels, taskLabels, tasks, type LabelRow, type TaskRow } from "../db/schema.js";
 import { NotFoundError } from "../lib/http-errors.js";
-import { requireOwnership } from "../lib/ownership.js";
 import type { LabelDTO } from "./label.service.js";
 
 export type TaskDTO = {
@@ -11,7 +10,6 @@ export type TaskDTO = {
   title: string;
   description: string | null;
   completed: boolean;
-  dueDate: string | null;
   scheduledFor: string | null;
   estimatedMinutes: number | null;
   position: number;
@@ -35,7 +33,6 @@ function toTaskDTO(row: TaskRow, taskLabelsForRow: LabelDTO[]): TaskDTO {
     title: row.title,
     description: row.description,
     completed: row.completed,
-    dueDate: row.dueDate ? row.dueDate.toISOString() : null,
     scheduledFor: row.scheduledFor,
     estimatedMinutes: row.estimatedMinutes,
     position: row.position,
@@ -96,7 +93,6 @@ export async function createTask(userId: number, input: CreateTaskInput): Promis
       userId,
       title: input.title,
       description: input.description ?? null,
-      dueDate: input.dueDate ? new Date(input.dueDate) : null,
       scheduledFor: input.scheduledFor ?? null,
       estimatedMinutes: input.estimatedMinutes ?? null,
       position,
@@ -107,15 +103,10 @@ export async function createTask(userId: number, input: CreateTaskInput): Promis
 }
 
 // Caller must call requireOwnership("task") first.
-export async function updateTask(
-  _userId: number,
-  id: number,
-  input: UpdateTaskInput,
-): Promise<TaskDTO> {
+export async function updateTask(id: number, input: UpdateTaskInput): Promise<TaskDTO> {
   const updates: Partial<{
     title: string;
     description: string | null;
-    dueDate: Date | null;
     scheduledFor: string | null;
     estimatedMinutes: number | null;
     completed: boolean;
@@ -125,7 +116,6 @@ export async function updateTask(
 
   if (input.title !== undefined) updates.title = input.title;
   if (input.description !== undefined) updates.description = input.description;
-  if (input.dueDate !== undefined) updates.dueDate = input.dueDate ? new Date(input.dueDate) : null;
   if (input.scheduledFor !== undefined) updates.scheduledFor = input.scheduledFor;
   if (input.estimatedMinutes !== undefined) updates.estimatedMinutes = input.estimatedMinutes;
   if (input.completed !== undefined) updates.completed = input.completed;
@@ -140,23 +130,4 @@ export async function updateTask(
 // Caller must call requireOwnership("task") first.
 export async function deleteTask(id: number): Promise<void> {
   await db.delete(tasks).where(eq(tasks.id, id));
-}
-
-// Caller must call requireOwnership("task") first.
-export async function setTaskLabels(
-  userId: number,
-  taskId: number,
-  labelIds: number[],
-): Promise<TaskDTO> {
-  const uniqueIds = [...new Set(labelIds)];
-  await Promise.all(uniqueIds.map((id) => requireOwnership(userId, "label", id)));
-
-  await db.transaction(async (tx) => {
-    await tx.delete(taskLabels).where(eq(taskLabels.taskId, taskId));
-    if (uniqueIds.length > 0) {
-      await tx.insert(taskLabels).values(uniqueIds.map((labelId) => ({ taskId, labelId })));
-    }
-  });
-
-  return getTask(taskId);
 }

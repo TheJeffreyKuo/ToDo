@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createTaskSchema, setTaskLabelsSchema, updateTaskSchema } from "@todo/shared/schemas/task";
+import { createTaskSchema, updateTaskSchema } from "@todo/shared/schemas/task";
 import { asyncHandler } from "../lib/async-handler.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireOwnershipOf } from "../middleware/requireOwnership.js";
@@ -41,7 +41,7 @@ taskRouter.patch(
   requireOwnershipOf("task"),
   validate(updateTaskSchema),
   asyncHandler(async (req, res) => {
-    const task = await taskService.updateTask(req.userId!, Number(req.params.id), req.body);
+    const task = await taskService.updateTask(Number(req.params.id), req.body);
     res.json({ task });
   }),
 );
@@ -52,19 +52,5 @@ taskRouter.delete(
   asyncHandler(async (req, res) => {
     await taskService.deleteTask(Number(req.params.id));
     res.status(204).end();
-  }),
-);
-
-taskRouter.put(
-  "/:id/labels",
-  requireOwnershipOf("task"),
-  validate(setTaskLabelsSchema),
-  asyncHandler(async (req, res) => {
-    const task = await taskService.setTaskLabels(
-      req.userId!,
-      Number(req.params.id),
-      req.body.labelIds,
-    );
-    res.json({ task });
   }),
 );

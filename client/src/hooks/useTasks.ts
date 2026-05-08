@@ -52,15 +52,5 @@ export function useTasks() {
     );
   }, []);
 
-  const setTaskLabels = useCallback(async (id: number, labelIds: number[]) => {
-    const updated = await tasksApi.setTaskLabels(id, labelIds);
-    setState((prev) =>
-      prev.status === "ready"
-        ? { ...prev, tasks: prev.tasks.map((t) => (t.id === id ? updated : t)) }
-        : prev,
-    );
-    return updated;
-  }, []);
-
-  return { state, createTask, updateTask, deleteTask, setTaskLabels };
+  return { state, createTask, updateTask, deleteTask };
 }
