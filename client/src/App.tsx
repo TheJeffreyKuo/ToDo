@@ -2,8 +2,8 @@ import { Route, Routes } from "react-router-dom";
 import { RedirectIfAuthed, RequireAuth } from "@/components/RequireAuth";
 import HomePage from "@/pages/HomePage";
 import LoginPage from "@/pages/LoginPage";
-import ProjectDetailPage from "@/pages/ProjectDetailPage";
 import RegisterPage from "@/pages/RegisterPage";
+import SettingsPage from "@/pages/SettingsPage";
 
 export default function App() {
   return (
@@ -26,7 +26,7 @@ export default function App() {
       />
       <Route element={<RequireAuth />}>
         <Route path="/" element={<HomePage />} />
-        <Route path="/projects/:id" element={<ProjectDetailPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Route>
     </Routes>
   );

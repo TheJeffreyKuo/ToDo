@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, max } from "drizzle-orm";
+import { asc, eq, inArray, max } from "drizzle-orm";
 import type { CreateTaskInput, UpdateTaskInput } from "@todo/shared/schemas/task";
 import { db } from "../db/client.js";
 import { labels, taskLabels, tasks, type LabelRow, type TaskRow } from "../db/schema.js";
@@ -8,7 +8,6 @@ import type { LabelDTO } from "./label.service.js";
 
 export type TaskDTO = {
   id: number;
-  projectId: number | null;
   title: string;
   description: string | null;
   completed: boolean;
@@ -33,7 +32,6 @@ function toLabelDTO(row: LabelRow): LabelDTO {
 function toTaskDTO(row: TaskRow, taskLabelsForRow: LabelDTO[]): TaskDTO {
   return {
     id: row.id,
-    projectId: row.projectId,
     title: row.title,
     description: row.description,
     completed: row.completed,
@@ -63,12 +61,11 @@ async function fetchLabelsByTaskIds(taskIds: number[]): Promise<Map<number, Labe
   return result;
 }
 
-async function nextPosition(userId: number, projectId: number | null): Promise<number> {
-  const wherePid = projectId === null ? isNull(tasks.projectId) : eq(tasks.projectId, projectId);
+async function nextPosition(userId: number): Promise<number> {
   const [row] = await db
     .select({ max: max(tasks.position) })
     .from(tasks)
-    .where(and(eq(tasks.userId, userId), wherePid));
+    .where(eq(tasks.userId, userId));
   return (row?.max ?? 0) + 1;
 }
 
@@ -91,17 +88,12 @@ export async function getTask(id: number): Promise<TaskDTO> {
 }
 
 export async function createTask(userId: number, input: CreateTaskInput): Promise<TaskDTO> {
-  const projectId = input.projectId ?? null;
-  if (projectId !== null) {
-    await requireOwnership(userId, "project", projectId);
-  }
-  const position = input.position ?? (await nextPosition(userId, projectId));
+  const position = input.position ?? (await nextPosition(userId));
 
   const [row] = await db
     .insert(tasks)
     .values({
       userId,
-      projectId,
       title: input.title,
       description: input.description ?? null,
       dueDate: input.dueDate ? new Date(input.dueDate) : null,
@@ -116,18 +108,13 @@ export async function createTask(userId: number, input: CreateTaskInput): Promis
 
 // Caller must call requireOwnership("task") first.
 export async function updateTask(
-  userId: number,
+  _userId: number,
   id: number,
   input: UpdateTaskInput,
 ): Promise<TaskDTO> {
-  if (input.projectId !== undefined && input.projectId !== null) {
-    await requireOwnership(userId, "project", input.projectId);
-  }
-
   const updates: Partial<{
     title: string;
     description: string | null;
-    projectId: number | null;
     dueDate: Date | null;
     scheduledFor: string | null;
     estimatedMinutes: number | null;
@@ -138,7 +125,6 @@ export async function updateTask(
 
   if (input.title !== undefined) updates.title = input.title;
   if (input.description !== undefined) updates.description = input.description;
-  if (input.projectId !== undefined) updates.projectId = input.projectId;
   if (input.dueDate !== undefined) updates.dueDate = input.dueDate ? new Date(input.dueDate) : null;
   if (input.scheduledFor !== undefined) updates.scheduledFor = input.scheduledFor;
   if (input.estimatedMinutes !== undefined) updates.estimatedMinutes = input.estimatedMinutes;

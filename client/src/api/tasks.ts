@@ -9,7 +9,6 @@ export type TaskLabel = {
 
 export type Task = {
   id: number;
-  projectId: number | null;
   title: string;
   description: string | null;
   completed: boolean;
@@ -25,7 +24,6 @@ export type Task = {
 export type CreateTaskInput = {
   title: string;
   description?: string;
-  projectId?: number;
   dueDate?: string;
   scheduledFor?: string;
   estimatedMinutes?: number;
@@ -35,7 +33,6 @@ export type CreateTaskInput = {
 export type UpdateTaskInput = {
   title?: string;
   description?: string | null;
-  projectId?: number | null;
   dueDate?: string | null;
   scheduledFor?: string | null;
   estimatedMinutes?: number | null;

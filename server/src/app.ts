@@ -7,7 +7,6 @@ import { errorHandler } from "./middleware/errorHandler.js";
 import { sessionMiddleware } from "./middleware/session.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { labelRouter } from "./routes/label.routes.js";
-import { projectRouter } from "./routes/project.routes.js";
 import { taskRouter } from "./routes/task.routes.js";
 
 const app = express();
@@ -23,7 +22,6 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRouter);
-app.use("/api/projects", projectRouter);
 app.use("/api/labels", labelRouter);
 app.use("/api/tasks", taskRouter);
 

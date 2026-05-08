@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { labels, projects, tasks } from "../db/schema.js";
+import { labels, tasks } from "../db/schema.js";
 import { NotFoundError } from "./http-errors.js";
 
-export type OwnershipKind = "task" | "project" | "label";
+export type OwnershipKind = "task" | "label";
 
 // Sole authority for per-resource access checks. All routes/services
 // must call this rather than filtering with WHERE user_id = $1 ad-hoc.
@@ -23,15 +23,6 @@ export async function requireOwnership(
         .select({ userId: tasks.userId })
         .from(tasks)
         .where(eq(tasks.id, id))
-        .limit(1);
-      ownerId = row?.userId;
-      break;
-    }
-    case "project": {
-      const [row] = await db
-        .select({ userId: projects.userId })
-        .from(projects)
-        .where(eq(projects.id, id))
         .limit(1);
       ownerId = row?.userId;
       break;

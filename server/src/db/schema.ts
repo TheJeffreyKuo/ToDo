@@ -27,23 +27,6 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const projects = pgTable(
-  "projects",
-  {
-    id: bigserial("id", { mode: "number" }).primaryKey(),
-    userId: bigint("user_id", { mode: "number" })
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    color: text("color"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => ({
-    userIdx: uniqueIndex("projects_user_name_unique").on(t.userId, t.name),
-  }),
-);
-
 export const labels = pgTable(
   "labels",
   {
@@ -67,9 +50,6 @@ export const tasks = pgTable(
     userId: bigint("user_id", { mode: "number" })
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    projectId: bigint("project_id", { mode: "number" }).references(() => projects.id, {
-      onDelete: "cascade",
-    }),
     title: text("title").notNull(),
     description: text("description"),
     completed: boolean("completed").notNull().default(false),
@@ -102,8 +82,6 @@ export const taskLabels = pgTable(
 
 export type UserRow = typeof users.$inferSelect;
 export type NewUserRow = typeof users.$inferInsert;
-export type ProjectRow = typeof projects.$inferSelect;
-export type NewProjectRow = typeof projects.$inferInsert;
 export type LabelRow = typeof labels.$inferSelect;
 export type NewLabelRow = typeof labels.$inferInsert;
 export type TaskRow = typeof tasks.$inferSelect;
