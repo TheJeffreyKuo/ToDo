@@ -11,7 +11,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { BacklogColumn } from "@/components/BacklogColumn";
@@ -27,7 +27,7 @@ import {
   weekDaysFromMonday,
   weekRangeLabel,
 } from "@/lib/tasks";
-import type { CreateTaskInput, Task } from "@/api/tasks";
+import type { CreateTaskInput, Task, UpdateTaskInput } from "@/api/tasks";
 
 const BACKLOG_COLUMN_ID = "col:backlog";
 const dayColumnId = (day: string): string => `col:${day}`;
@@ -111,37 +111,47 @@ export default function HomePage() {
 
     if (overId.startsWith("col:")) {
       destColumn = findColumnById(overId);
-      destIndex = destColumn?.tasks.length ?? 0;
+      if (!destColumn) return;
+      destIndex = destColumn.tasks.length;
     } else {
       const overTaskId = Number(over.id);
       destColumn = findColumnByTaskId(overTaskId);
       if (!destColumn) return;
-      destIndex = destColumn.tasks.findIndex((t) => t.id === overTaskId);
+      const overIndex = destColumn.tasks.findIndex((t) => t.id === overTaskId);
+      // Compare the dragged card's center to the over-task's center to decide before vs. after.
+      // This makes "drop below the last task" land at the end instead of one-before-end.
+      const activeRect = active.rect.current.translated;
+      const isBelowOverCenter = activeRect
+        ? activeRect.top + activeRect.height / 2 >
+          over.rect.top + over.rect.height / 2
+        : false;
+      destIndex = isBelowOverCenter ? overIndex + 1 : overIndex;
     }
-    if (!destColumn) return;
 
-    const sourceIndex = sourceColumn.tasks.findIndex((t) => t.id === activeTaskId);
-
+    let resultingTasks: Task[];
     if (sourceColumn.id === destColumn.id) {
-      if (sourceIndex === destIndex) return;
-      const reordered = arrayMove(sourceColumn.tasks, sourceIndex, destIndex);
-      const finalIdx = reordered.findIndex((t) => t.id === activeTaskId);
-      const prev = reordered[finalIdx - 1];
-      const next = reordered[finalIdx + 1];
-      void tasksHook.updateTask(activeTaskId, {
-        position: positionBetween(prev?.position, next?.position),
-      });
+      const sourceIndex = sourceColumn.tasks.findIndex((t) => t.id === activeTaskId);
+      // Both indices map to the same final position (item stays put).
+      if (destIndex === sourceIndex || destIndex === sourceIndex + 1) return;
+      resultingTasks = [...sourceColumn.tasks];
+      resultingTasks.splice(sourceIndex, 1);
+      const adjustedDest = sourceIndex < destIndex ? destIndex - 1 : destIndex;
+      resultingTasks.splice(adjustedDest, 0, activeT);
     } else {
-      const newDestList = [...destColumn.tasks];
-      newDestList.splice(destIndex, 0, activeT);
-      const finalIdx = newDestList.findIndex((t) => t.id === activeTaskId);
-      const prev = newDestList[finalIdx - 1];
-      const next = newDestList[finalIdx + 1];
-      void tasksHook.updateTask(activeTaskId, {
-        position: positionBetween(prev?.position, next?.position),
-        scheduledFor: destColumn.scheduledFor,
-      });
+      resultingTasks = [...destColumn.tasks];
+      resultingTasks.splice(destIndex, 0, activeT);
     }
+
+    const finalIdx = resultingTasks.findIndex((t) => t.id === activeTaskId);
+    const prev = resultingTasks[finalIdx - 1];
+    const next = resultingTasks[finalIdx + 1];
+    const update: UpdateTaskInput = {
+      position: positionBetween(prev?.position, next?.position),
+    };
+    if (sourceColumn.scheduledFor !== destColumn.scheduledFor) {
+      update.scheduledFor = destColumn.scheduledFor;
+    }
+    void tasksHook.updateTask(activeTaskId, update);
   }
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
