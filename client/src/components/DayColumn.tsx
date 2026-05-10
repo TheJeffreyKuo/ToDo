@@ -1,14 +1,16 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { QuickAdd } from "@/components/QuickAdd";
 import { TaskCard } from "@/components/TaskCard";
 import { dayMonthDay, dayShortName, formatMinutes, totalMinutes } from "@/lib/tasks";
-import type { Task, UpdateTaskInput } from "@/api/tasks";
+import type { CreateTaskInput, Task, UpdateTaskInput } from "@/api/tasks";
 
 export function DayColumn({
   columnId,
   day,
   isToday,
   tasks,
+  onCreate,
   onUpdate,
   onDelete,
 }: {
@@ -16,6 +18,7 @@ export function DayColumn({
   day: string;
   isToday: boolean;
   tasks: Task[];
+  onCreate: (input: CreateTaskInput) => Promise<unknown>;
   onUpdate: (id: number, input: UpdateTaskInput) => Promise<unknown>;
   onDelete: (id: number) => Promise<unknown>;
 }) {
@@ -50,7 +53,7 @@ export function DayColumn({
           </div>
         )}
       </div>
-      <div className="flex-1 p-1.5 min-h-[16rem]">
+      <div className="flex flex-1 min-h-[16rem] flex-col gap-1.5 p-1.5">
         <SortableContext
           items={tasks.map((t) => t.id)}
           strategy={verticalListSortingStrategy}
@@ -66,11 +69,7 @@ export function DayColumn({
             ))}
           </ul>
         </SortableContext>
-        {tasks.length === 0 && (
-          <div className="px-1 py-3 text-center text-[10px] text-zinc-400">
-            Drop or add a task
-          </div>
-        )}
+        <QuickAdd scheduledFor={day} onCreate={onCreate} />
       </div>
     </div>
   );

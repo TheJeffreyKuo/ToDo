@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   DndContext,
@@ -12,12 +12,10 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { BacklogColumn } from "@/components/BacklogColumn";
 import { DayColumn } from "@/components/DayColumn";
 import { TaskCardPreview } from "@/components/TaskCardPreview";
-import { TimePicker } from "@/components/TimePicker";
 import { useTasks } from "@/hooks/useTasks";
 import {
   mondayOfWeek,
@@ -27,7 +25,7 @@ import {
   weekDaysFromMonday,
   weekRangeLabel,
 } from "@/lib/tasks";
-import type { CreateTaskInput, Task, UpdateTaskInput } from "@/api/tasks";
+import type { Task, UpdateTaskInput } from "@/api/tasks";
 
 const BACKLOG_COLUMN_ID = "col:backlog";
 const dayColumnId = (day: string): string => `col:${day}`;
@@ -45,12 +43,6 @@ export default function HomePage() {
   const today = useMemo(() => todayLocal(), []);
   const weekDays = useMemo(() => weekDaysFromMonday(weekStart), [weekStart]);
   const [activeId, setActiveId] = useState<number | null>(null);
-
-  const [newTitle, setNewTitle] = useState("");
-  const [newScheduledFor, setNewScheduledFor] = useState<string>("");
-  const [newMinutes, setNewMinutes] = useState<number | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -154,27 +146,6 @@ export default function HomePage() {
     void tasksHook.updateTask(activeTaskId, update);
   }
 
-  async function onCreate(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const title = newTitle.trim();
-    if (!title) return;
-    setCreating(true);
-    setCreateError(null);
-    try {
-      const input: CreateTaskInput = { title };
-      if (newScheduledFor) input.scheduledFor = newScheduledFor;
-      if (newMinutes !== null) input.estimatedMinutes = newMinutes;
-      await tasksHook.createTask(input);
-      setNewTitle("");
-      setNewScheduledFor("");
-      setNewMinutes(null);
-    } catch (err) {
-      setCreateError(err instanceof ApiError ? err.message : "Something went wrong");
-    } finally {
-      setCreating(false);
-    }
-  }
-
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
       <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/85 backdrop-blur">
@@ -226,33 +197,6 @@ export default function HomePage() {
           <h2 className="ml-2 text-lg font-medium tabular-nums">{weekRangeLabel(weekStart)}</h2>
         </div>
 
-        <form onSubmit={onCreate} className="flex flex-wrap gap-2">
-          <input
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="What needs doing?"
-            disabled={creating}
-            className="min-w-[16rem] flex-1 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-300"
-          />
-          <input
-            type="date"
-            value={newScheduledFor}
-            onChange={(e) => setNewScheduledFor(e.target.value)}
-            disabled={creating}
-            aria-label="Scheduled date"
-            className="rounded-md border border-zinc-200 bg-white px-2 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-300"
-          />
-          <TimePicker minutes={newMinutes} onChange={setNewMinutes} disabled={creating} />
-          <button
-            type="submit"
-            disabled={creating || !newTitle.trim()}
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white shadow-sm hover:bg-zinc-800 disabled:opacity-50"
-          >
-            Add
-          </button>
-        </form>
-        {createError && <div className="text-sm text-red-600">{createError}</div>}
-
         {tasksState.status === "loading" && (
           <div className="text-sm text-zinc-500">Loading…</div>
         )}
@@ -278,6 +222,7 @@ export default function HomePage() {
                     day={day}
                     isToday={day === today}
                     tasks={col.tasks}
+                    onCreate={tasksHook.createTask}
                     onUpdate={tasksHook.updateTask}
                     onDelete={tasksHook.deleteTask}
                   />
@@ -288,6 +233,7 @@ export default function HomePage() {
             <BacklogColumn
               columnId={BACKLOG_COLUMN_ID}
               tasks={backlogTasks}
+              onCreate={tasksHook.createTask}
               onUpdate={tasksHook.updateTask}
               onDelete={tasksHook.deleteTask}
             />
