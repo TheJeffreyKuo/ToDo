@@ -66,10 +66,14 @@ export function shiftWeek(mondayStr: string, weeks: number): string {
   return formatLocalDate(shifted);
 }
 
-export function dayLabel(dateStr: string): string {
+export function dayShortName(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number) as [number, number, number];
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "short" });
+}
+
+export function dayMonthDay(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number) as [number, number, number];
   return new Date(y, m - 1, d).toLocaleDateString(undefined, {
-    weekday: "short",
     month: "short",
     day: "numeric",
   });

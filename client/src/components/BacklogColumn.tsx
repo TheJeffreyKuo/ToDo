@@ -21,15 +21,17 @@ export function BacklogColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-lg border bg-zinc-50/60 transition-colors ${
+      className={`overflow-hidden rounded-xl border bg-white shadow-sm transition-all ${
         isOver
-          ? "ring-2 ring-blue-400/60 ring-offset-1 border-blue-300"
+          ? "border-blue-300 ring-2 ring-blue-400 ring-offset-1"
           : "border-zinc-200"
       }`}
     >
-      <div className="flex items-baseline justify-between border-b border-zinc-200 px-3 py-2">
-        <h3 className="text-sm font-medium text-zinc-700">Unscheduled</h3>
-        <span className="text-xs text-zinc-500 tabular-nums">
+      <div className="flex items-baseline justify-between border-b border-zinc-100 px-3 py-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-700">
+          Unscheduled
+        </h3>
+        <span className="text-xs tabular-nums text-zinc-500">
           {tasks.length} task{tasks.length === 1 ? "" : "s"}
           {total > 0 ? ` · ${formatMinutes(total)}` : ""}
         </span>

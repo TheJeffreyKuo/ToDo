@@ -166,29 +166,34 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen p-6 text-zinc-900">
-      <header className="flex items-center justify-between max-w-7xl mx-auto">
-        <h1 className="text-2xl font-semibold">ToDo</h1>
-        <div className="flex items-center gap-3 text-sm">
-          <Link to="/settings" className="rounded border px-3 py-1 hover:bg-zinc-50">
-            Settings
-          </Link>
-          <span className="text-zinc-600">{authState.user.email}</span>
-          <button
-            onClick={() => logout()}
-            className="rounded border px-3 py-1 hover:bg-zinc-50"
-          >
-            Sign out
-          </button>
+    <div className="min-h-screen bg-zinc-50 text-zinc-900">
+      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/85 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
+          <h1 className="text-xl font-semibold tracking-tight">ToDo</h1>
+          <div className="flex items-center gap-2 text-sm">
+            <Link
+              to="/settings"
+              className="rounded-md border border-zinc-200 px-3 py-1.5 text-zinc-700 hover:bg-zinc-50"
+            >
+              Settings
+            </Link>
+            <span className="hidden text-zinc-500 sm:inline">{authState.user.email}</span>
+            <button
+              onClick={() => logout()}
+              className="rounded-md border border-zinc-200 px-3 py-1.5 text-zinc-700 hover:bg-zinc-50"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto mt-6 space-y-4">
+      <main className="mx-auto max-w-7xl space-y-4 px-6 py-6">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setWeekStart((w) => shiftWeek(w, -1))}
-            className="rounded border px-2 py-1 text-sm hover:bg-zinc-50"
+            className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-sm hover:bg-zinc-50"
             aria-label="Previous week"
           >
             ←
@@ -196,14 +201,14 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => setWeekStart(mondayOfWeek())}
-            className="rounded border px-3 py-1 text-sm hover:bg-zinc-50"
+            className="rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm hover:bg-zinc-50"
           >
             Today
           </button>
           <button
             type="button"
             onClick={() => setWeekStart((w) => shiftWeek(w, 1))}
-            className="rounded border px-2 py-1 text-sm hover:bg-zinc-50"
+            className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-sm hover:bg-zinc-50"
             aria-label="Next week"
           >
             →
@@ -217,7 +222,7 @@ export default function HomePage() {
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="What needs doing?"
             disabled={creating}
-            className="flex-1 min-w-[16rem] rounded border px-3 py-2 text-sm"
+            className="min-w-[16rem] flex-1 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-300"
           />
           <input
             type="date"
@@ -225,13 +230,13 @@ export default function HomePage() {
             onChange={(e) => setNewScheduledFor(e.target.value)}
             disabled={creating}
             aria-label="Scheduled date"
-            className="rounded border px-2 py-2 text-sm"
+            className="rounded-md border border-zinc-200 bg-white px-2 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-300"
           />
           <TimePicker minutes={newMinutes} onChange={setNewMinutes} disabled={creating} />
           <button
             type="submit"
             disabled={creating || !newTitle.trim()}
-            className="rounded bg-zinc-900 text-white px-4 py-2 text-sm disabled:opacity-50"
+            className="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white shadow-sm hover:bg-zinc-800 disabled:opacity-50"
           >
             Add
           </button>

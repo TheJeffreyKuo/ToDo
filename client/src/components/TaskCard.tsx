@@ -65,7 +65,7 @@ export function TaskCard({
     <li
       ref={setNodeRef}
       style={style}
-      className="rounded border border-zinc-200 bg-white px-2 py-1.5 text-xs shadow-sm"
+      className="group rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-xs shadow-sm transition-colors hover:border-zinc-300"
     >
       <div className="flex items-start gap-1.5">
         <button
@@ -74,7 +74,7 @@ export function TaskCard({
           {...listeners}
           aria-label="Drag to reorder"
           title="Drag to reorder"
-          className="cursor-grab text-zinc-300 hover:text-zinc-600 active:cursor-grabbing select-none leading-none"
+          className="cursor-grab select-none leading-none text-zinc-300 group-hover:text-zinc-500 active:cursor-grabbing"
         >
           ⋮⋮
         </button>

@@ -32,38 +32,43 @@ export default function SettingsPage() {
   const labelsState = labelsHook.state;
 
   return (
-    <div className="min-h-screen p-6 text-zinc-900">
-      <header className="flex items-center justify-between max-w-2xl mx-auto">
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <div className="flex items-center gap-3 text-sm">
-          <Link to="/" className="rounded border px-3 py-1 hover:bg-zinc-50">
-            ← Back
-          </Link>
-          <span className="text-zinc-600">{authState.user.email}</span>
-          <button
-            onClick={() => logout()}
-            className="rounded border px-3 py-1 hover:bg-zinc-50"
-          >
-            Sign out
-          </button>
+    <div className="min-h-screen bg-zinc-50 text-zinc-900">
+      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/85 backdrop-blur">
+        <div className="mx-auto flex max-w-2xl items-center justify-between px-6 py-3">
+          <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
+          <div className="flex items-center gap-2 text-sm">
+            <Link
+              to="/"
+              className="rounded-md border border-zinc-200 px-3 py-1.5 text-zinc-700 hover:bg-zinc-50"
+            >
+              ← Back
+            </Link>
+            <span className="hidden text-zinc-500 sm:inline">{authState.user.email}</span>
+            <button
+              onClick={() => logout()}
+              className="rounded-md border border-zinc-200 px-3 py-1.5 text-zinc-700 hover:bg-zinc-50"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto mt-8 space-y-6">
+      <main className="mx-auto max-w-2xl space-y-6 px-6 py-8">
         <section>
-          <h2 className="text-lg font-semibold mb-3">Labels</h2>
-          <form onSubmit={onCreate} className="flex gap-2 mb-4">
+          <h2 className="mb-3 text-lg font-semibold">Labels</h2>
+          <form onSubmit={onCreate} className="mb-4 flex gap-2">
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="New label name"
               disabled={creating}
-              className="flex-1 rounded border px-3 py-2 text-sm"
+              className="flex-1 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-300"
             />
             <button
               type="submit"
               disabled={creating || !newName.trim()}
-              className="rounded bg-zinc-900 text-white px-4 py-2 text-sm disabled:opacity-50"
+              className="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white shadow-sm hover:bg-zinc-800 disabled:opacity-50"
             >
               Add
             </button>
@@ -77,10 +82,12 @@ export default function SettingsPage() {
             <div className="text-sm text-red-600">{labelsState.message}</div>
           )}
           {labelsState.status === "ready" && labelsState.labels.length === 0 && (
-            <div className="text-sm text-zinc-500">No labels yet.</div>
+            <div className="rounded-md border border-dashed border-zinc-200 bg-white p-6 text-center text-sm text-zinc-500">
+              No labels yet.
+            </div>
           )}
           {labelsState.status === "ready" && labelsState.labels.length > 0 && (
-            <ul className="divide-y border rounded bg-white">
+            <ul className="divide-y divide-zinc-100 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm">
               {labelsState.labels.map((l) => (
                 <li key={l.id} className="flex items-center justify-between p-3 text-sm">
                   <span
