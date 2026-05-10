@@ -1,22 +1,42 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
-import { SortableTaskList } from "@/components/SortableTaskList";
-import { TaskCard } from "@/components/TaskCard";
+import { BacklogColumn } from "@/components/BacklogColumn";
+import { DayColumn } from "@/components/DayColumn";
+import { TaskCardPreview } from "@/components/TaskCardPreview";
 import { TimePicker } from "@/components/TimePicker";
 import { useTasks } from "@/hooks/useTasks";
 import {
-  dayLabel,
-  formatMinutes,
   mondayOfWeek,
+  positionBetween,
   shiftWeek,
   todayLocal,
-  totalMinutes,
   weekDaysFromMonday,
   weekRangeLabel,
 } from "@/lib/tasks";
-import type { CreateTaskInput } from "@/api/tasks";
+import type { CreateTaskInput, Task } from "@/api/tasks";
+
+const BACKLOG_COLUMN_ID = "col:backlog";
+const dayColumnId = (day: string): string => `col:${day}`;
+
+type Column = {
+  id: string;
+  scheduledFor: string | null;
+  tasks: Task[];
+};
 
 export default function HomePage() {
   const { state: authState, logout } = useAuth();
@@ -24,6 +44,7 @@ export default function HomePage() {
   const [weekStart, setWeekStart] = useState<string>(() => mondayOfWeek());
   const today = useMemo(() => todayLocal(), []);
   const weekDays = useMemo(() => weekDaysFromMonday(weekStart), [weekStart]);
+  const [activeId, setActiveId] = useState<number | null>(null);
 
   const [newTitle, setNewTitle] = useState("");
   const [newScheduledFor, setNewScheduledFor] = useState<string>("");
@@ -31,21 +52,97 @@ export default function HomePage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
   if (authState.status !== "authenticated") return null;
 
   const tasksState = tasksHook.state;
   const tasks = tasksState.status === "ready" ? tasksState.tasks : [];
 
-  const tasksByDay = new Map<string, typeof tasks>();
-  for (const day of weekDays) tasksByDay.set(day, []);
-  for (const t of tasks) {
-    if (t.scheduledFor && tasksByDay.has(t.scheduledFor)) {
-      tasksByDay.get(t.scheduledFor)!.push(t);
-    }
+  // Server already returns tasks ordered by ascending position; preserve that when grouping.
+  const columns: Column[] = [
+    ...weekDays.map((day) => ({
+      id: dayColumnId(day),
+      scheduledFor: day as string | null,
+      tasks: tasks.filter((t) => t.scheduledFor === day),
+    })),
+    {
+      id: BACKLOG_COLUMN_ID,
+      scheduledFor: null,
+      tasks: tasks.filter((t) => t.scheduledFor === null),
+    },
+  ];
+
+  const backlogTasks = columns[columns.length - 1]!.tasks;
+  const activeTask: Task | null =
+    activeId !== null ? tasks.find((t) => t.id === activeId) ?? null : null;
+
+  function findColumnByTaskId(id: number): Column | undefined {
+    return columns.find((c) => c.tasks.some((t) => t.id === id));
+  }
+  function findColumnById(id: string): Column | undefined {
+    return columns.find((c) => c.id === id);
   }
 
-  const backlog = tasks.filter((t) => t.scheduledFor === null);
-  const backlogTotal = totalMinutes(backlog);
+  function onDragStart(event: DragStartEvent) {
+    setActiveId(Number(event.active.id));
+  }
+  function onDragCancel() {
+    setActiveId(null);
+  }
+  function onDragEnd(event: DragEndEvent) {
+    setActiveId(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeTaskId = Number(active.id);
+    const activeT = tasks.find((t) => t.id === activeTaskId);
+    if (!activeT) return;
+
+    const sourceColumn = findColumnByTaskId(activeTaskId);
+    if (!sourceColumn) return;
+
+    let destColumn: Column | undefined;
+    let destIndex: number;
+    const overId = String(over.id);
+
+    if (overId.startsWith("col:")) {
+      destColumn = findColumnById(overId);
+      destIndex = destColumn?.tasks.length ?? 0;
+    } else {
+      const overTaskId = Number(over.id);
+      destColumn = findColumnByTaskId(overTaskId);
+      if (!destColumn) return;
+      destIndex = destColumn.tasks.findIndex((t) => t.id === overTaskId);
+    }
+    if (!destColumn) return;
+
+    const sourceIndex = sourceColumn.tasks.findIndex((t) => t.id === activeTaskId);
+
+    if (sourceColumn.id === destColumn.id) {
+      if (sourceIndex === destIndex) return;
+      const reordered = arrayMove(sourceColumn.tasks, sourceIndex, destIndex);
+      const finalIdx = reordered.findIndex((t) => t.id === activeTaskId);
+      const prev = reordered[finalIdx - 1];
+      const next = reordered[finalIdx + 1];
+      void tasksHook.updateTask(activeTaskId, {
+        position: positionBetween(prev?.position, next?.position),
+      });
+    } else {
+      const newDestList = [...destColumn.tasks];
+      newDestList.splice(destIndex, 0, activeT);
+      const finalIdx = newDestList.findIndex((t) => t.id === activeTaskId);
+      const prev = newDestList[finalIdx - 1];
+      const next = newDestList[finalIdx + 1];
+      void tasksHook.updateTask(activeTaskId, {
+        position: positionBetween(prev?.position, next?.position),
+        scheduledFor: destColumn.scheduledFor,
+      });
+    }
+  }
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -149,86 +246,41 @@ export default function HomePage() {
         )}
 
         {tasksState.status === "ready" && (
-          <>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            onDragCancel={onDragCancel}
+          >
             <div className="grid grid-cols-7 gap-2">
               {weekDays.map((day) => {
-                const dayTasks = tasksByDay.get(day) ?? [];
-                const isToday = day === today;
-                const dayTotal = totalMinutes(dayTasks);
+                const col = columns.find((c) => c.scheduledFor === day)!;
                 return (
-                  <div
+                  <DayColumn
                     key={day}
-                    className={`flex flex-col rounded-lg border ${
-                      isToday
-                        ? "border-zinc-900 bg-amber-50/60"
-                        : "border-zinc-200 bg-zinc-50/60"
-                    }`}
-                  >
-                    <div
-                      className={`border-b px-2 py-1.5 ${
-                        isToday ? "border-zinc-900/20" : "border-zinc-200"
-                      }`}
-                    >
-                      <div
-                        className={`text-xs ${
-                          isToday ? "font-semibold text-zinc-900" : "text-zinc-600"
-                        }`}
-                      >
-                        {dayLabel(day)}
-                      </div>
-                      <div className="text-[10px] text-zinc-500 tabular-nums">
-                        {dayTotal > 0 ? formatMinutes(dayTotal) : "—"}
-                      </div>
-                    </div>
-                    <div className="flex-1 p-1.5 min-h-[16rem]">
-                      {dayTasks.length === 0 ? (
-                        <div className="text-[10px] text-zinc-400 px-1 py-2">No tasks</div>
-                      ) : (
-                        <SortableTaskList tasks={dayTasks} onUpdateTask={tasksHook.updateTask}>
-                          <ul className="space-y-1.5">
-                            {dayTasks.map((task) => (
-                              <TaskCard
-                                key={task.id}
-                                task={task}
-                                onUpdate={(input) => tasksHook.updateTask(task.id, input)}
-                                onDelete={() => tasksHook.deleteTask(task.id)}
-                              />
-                            ))}
-                          </ul>
-                        </SortableTaskList>
-                      )}
-                    </div>
-                  </div>
+                    columnId={col.id}
+                    day={day}
+                    isToday={day === today}
+                    tasks={col.tasks}
+                    onUpdate={tasksHook.updateTask}
+                    onDelete={tasksHook.deleteTask}
+                  />
                 );
               })}
             </div>
 
-            {backlog.length > 0 && (
-              <div className="rounded-lg border border-zinc-200 bg-zinc-50/60">
-                <div className="flex items-baseline justify-between border-b border-zinc-200 px-3 py-2">
-                  <h3 className="text-sm font-medium text-zinc-700">Unscheduled</h3>
-                  <span className="text-xs text-zinc-500 tabular-nums">
-                    {backlog.length} task{backlog.length === 1 ? "" : "s"}
-                    {backlogTotal > 0 ? ` · ${formatMinutes(backlogTotal)}` : ""}
-                  </span>
-                </div>
-                <div className="p-2">
-                  <SortableTaskList tasks={backlog} onUpdateTask={tasksHook.updateTask}>
-                    <ul className="grid grid-cols-2 gap-1.5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                      {backlog.map((task) => (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          onUpdate={(input) => tasksHook.updateTask(task.id, input)}
-                          onDelete={() => tasksHook.deleteTask(task.id)}
-                        />
-                      ))}
-                    </ul>
-                  </SortableTaskList>
-                </div>
-              </div>
-            )}
-          </>
+            <BacklogColumn
+              columnId={BACKLOG_COLUMN_ID}
+              tasks={backlogTasks}
+              onUpdate={tasksHook.updateTask}
+              onDelete={tasksHook.deleteTask}
+            />
+
+            <DragOverlay>
+              {activeTask ? <TaskCardPreview task={activeTask} /> : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </main>
     </div>
