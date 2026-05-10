@@ -192,8 +192,10 @@ export function TimePicker({
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-label="Estimated time"
-        className={`rounded border px-2 py-1 text-xs tabular-nums hover:bg-zinc-50 disabled:opacity-50 ${
-          isEmpty ? "text-zinc-500" : "text-zinc-900"
+        className={`rounded-md px-2 py-1 text-xs tabular-nums transition-colors disabled:opacity-50 ${
+          isEmpty
+            ? "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+            : "border border-zinc-200 text-zinc-900 hover:bg-zinc-50"
         }`}
       >
         {formatDisplay(minutes)}

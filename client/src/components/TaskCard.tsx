@@ -74,7 +74,7 @@ export function TaskCard({
           {...listeners}
           aria-label="Drag to reorder"
           title="Drag to reorder"
-          className="cursor-grab select-none leading-none text-zinc-300 group-hover:text-zinc-500 active:cursor-grabbing"
+          className="cursor-grab select-none leading-none text-zinc-200 transition-colors group-hover:text-zinc-500 group-focus-within:text-zinc-500 active:cursor-grabbing [@media(hover:none)]:text-zinc-400"
         >
           ⋮⋮
         </button>
@@ -120,7 +120,7 @@ export function TaskCard({
             if (window.confirm("Delete this task?")) onDelete();
           }}
           aria-label="Delete task"
-          className="text-zinc-400 hover:text-red-600"
+          className="rounded text-zinc-400 opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
         >
           ×
         </button>
